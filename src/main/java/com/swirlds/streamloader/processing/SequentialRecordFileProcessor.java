@@ -5,7 +5,7 @@ import com.swirlds.streamloader.data.ProcessedRecordFile;
 
 import java.util.Collections;
 
-public class BalanceProcessor {
+public class SequentialRecordFileProcessor {
 	/**
 	 * Given a part processed record file apply all balance deltas and compute new account balances
 	 */

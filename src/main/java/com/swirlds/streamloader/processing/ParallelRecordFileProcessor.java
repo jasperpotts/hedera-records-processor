@@ -2,7 +2,6 @@ package com.swirlds.streamloader.processing;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.util.JsonFormat;
 import com.hederahashgraph.api.proto.java.AccountAmount;
 import com.hederahashgraph.api.proto.java.AccountID;
 import com.hederahashgraph.api.proto.java.SignedTransaction;
@@ -31,7 +30,7 @@ import static com.swirlds.streamloader.util.Utils.readByteBufferSlice;
 import static com.swirlds.streamloader.util.Utils.toHex;
 
 @SuppressWarnings("DuplicatedCode")
-public class RecordFileProcessor {
+public class ParallelRecordFileProcessor {
 	public static final int HASH_OBJECT_SIZE_BYTES = 8+4+4+4+48;
 	public static PartProcessedRecordFile processRecordFile(RecordFile recordFile) throws Exception {
 		ByteBuffer dataBuf = recordFile.data().rewind();
