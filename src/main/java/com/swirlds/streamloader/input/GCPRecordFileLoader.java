@@ -3,16 +3,13 @@ package com.swirlds.streamloader.input;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import com.google.gson.Gson;
+import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
-import com.swirlds.streamloader.data.RecordFile;
 
 import javax.json.Json;
-import javax.json.JsonValue;
 import javax.json.stream.JsonParser;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,26 +34,19 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 	/** Max number of futures to queue */
 	private static final int BATCH_SIZE = 10_000;
 	public enum HederaNetwork {
-		DEMO("hedera-demo-streams", true),
-		MAINNET("hedera-mainnet-streams", false),
-		TESTNET("hedera-stable-testnet-streams-2020-08-27", false),
-		PREVIEWNET("hedera-preview-testnet-streams", false),
-		OTHER("", false); // Pre-prod or ad hoc environments
+		DEMO("hedera-demo-streams"),
+		MAINNET("hedera-mainnet-streams"),
+		TESTNET("hedera-stable-testnet-streams-2020-08-27"),
+		PREVIEWNET("hedera-preview-testnet-streams");
 
 		private final String bucketName;
-		private final Boolean allowAnonymousAccess;
 
-		HederaNetwork(final String bucketName, final Boolean allowAnonymousAccess) {
+		HederaNetwork(final String bucketName) {
 			this.bucketName = bucketName;
-			this.allowAnonymousAccess = allowAnonymousAccess;
 		}
 
 		public String getBucketName() {
 			return bucketName;
-		}
-
-		public Boolean getAllowAnonymousAccess() {
-			return allowAnonymousAccess;
 		}
 	}
 
@@ -64,32 +54,29 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 	private final HederaNetwork network;
 	private final String nodeID;
 	private final Date startDate;
-	private AtomicLong fileCount = new AtomicLong(0);
+	private final AtomicLong fileCount = new AtomicLong(0);
 
 	public GCPRecordFileLoader(final HederaNetwork network, final String nodeID,
 			final Date startDate) {
 		this.network = network;
 		this.nodeID = nodeID;
 		this.startDate = startDate;
+		// get the project name from credentials file
 		final String googleCredentials = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-		System.out.println("googleCredentials = " + googleCredentials);
-		if (googleCredentials != null) {
-			try {
-				final JsonParser parser = Json.createParser(Files.newBufferedReader(Path.of(googleCredentials)));
-					parser.next();
-					var object = parser.getObject();
-					this.gcpProjectName = object.getString("project_id",null);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-			if (this.gcpProjectName == null) {
-				throw new IllegalStateException(
-						"Could not talk to GCP as can not read project id from GOOGLE_APPLICATION_CREDENTIALS");
-			}
-		} else {
+		if (googleCredentials == null || googleCredentials.length() == 0) {
+			throw new RuntimeException("You need to set \"GOOGLE_APPLICATION_CREDENTIALS\" environment variable");
+		}
+		try {
+			final JsonParser parser = Json.createParser(Files.newBufferedReader(Path.of(googleCredentials)));
+				parser.next();
+				var object = parser.getObject();
+				this.gcpProjectName = object.getString("project_id",null);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		if (this.gcpProjectName == null) {
 			throw new IllegalStateException(
-					"Could not talk to GCP as can not read project id from GOOGLE_APPLICATION_CREDENTIALS " +
-							"env var as it is not set");
+					"Could not talk to GCP as can not read project id from GOOGLE_APPLICATION_CREDENTIALS");
 		}
 	}
 
@@ -168,10 +155,6 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 	}
 
 	public Iterable<Blob> listGcpDirectoryAsIterable(String gcpDirectoryPath) {
-		final String credentials = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-		if (credentials == null || credentials.length() == 0) {
-			throw new RuntimeException("You need to set \"GOOGLE_APPLICATION_CREDENTIALS\" environment variable");
-		}
 		// The name for the new bucket
 		final String bucketName = network.getBucketName();
 		// List the file in the bucket
@@ -190,6 +173,7 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 	/**
 	 * Future wrapper to wrap a record file future and return the file hash
 	 */
+	@SuppressWarnings("NullableProblems")
 	private static class PrevHashFuture implements Future<byte[]> {
 		private final Future<RecordFile> prevFileRecordFuture;
 

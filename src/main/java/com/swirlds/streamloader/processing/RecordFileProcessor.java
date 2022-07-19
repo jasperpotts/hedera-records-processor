@@ -47,7 +47,6 @@ public class RecordFileProcessor {
 
 	public static PartProcessedRecordFile processRecordFileV2(RecordFile recordFile, ByteBuffer dataBuf) {
 		final int hapiVersion = dataBuf.getInt();
-		System.out.println("hapiVersion = " + hapiVersion);
 		final byte prevFileHashMarker = dataBuf.get();
 		assert prevFileHashMarker == 1;
 		byte[] prevFileHash = new byte[48];
@@ -194,10 +193,8 @@ public class RecordFileProcessor {
 				transactionMessage = transactionRoot.getBody();
 			} else {
 				ByteString bodyBytes = transactionRoot.getBodyBytes();
-				System.out.println("bodyBytes = " + bodyBytes);
 				if (bodyBytes.isEmpty()) {
 					final var signedTransactionBytes = transactionRoot.getSignedTransactionBytes();
-					System.out.println("signedTransactionBytes = " + signedTransactionBytes);
 					bodyBytes = SignedTransaction.parseFrom(signedTransactionBytes).getBodyBytes();
 				}
 				transactionMessage = TransactionBody.parseFrom(bodyBytes);
