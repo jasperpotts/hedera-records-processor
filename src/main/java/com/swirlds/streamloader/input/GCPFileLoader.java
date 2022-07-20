@@ -4,10 +4,11 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
-import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import javax.json.Json;
 import javax.json.stream.JsonParser;
@@ -132,7 +133,7 @@ public class GCPFileLoader implements FileLoader {
 	}
 
 	@Override
-	public LongLongHashMap loadInitialBalances() {
+	public ObjectLongHashMap<BalanceKey> loadInitialBalances() {
 		// download the initial first balances file.
 		final String initialBalanceFilePath = "accountBalances/balance"+ nodeID +"/"+ INITIAL_BALANCE_FILE_NAME;
 		final Blob blob = STORAGE.get(BlobId.of(network.getBucketName(),initialBalanceFilePath),

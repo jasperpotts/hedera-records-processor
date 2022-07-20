@@ -4,7 +4,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.hederahashgraph.api.proto.java.AccountAmount;
 import com.hederahashgraph.api.proto.java.AccountID;
+import com.hederahashgraph.api.proto.java.NftTransfer;
 import com.hederahashgraph.api.proto.java.SignedTransaction;
+import com.hederahashgraph.api.proto.java.TokenTransferList;
 import com.hederahashgraph.api.proto.java.Transaction;
 import com.hederahashgraph.api.proto.java.TransactionBody;
 import com.hederahashgraph.api.proto.java.TransactionID;
@@ -29,10 +31,10 @@ import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 import static com.swirlds.streamloader.util.Utils.readByteBufferSlice;
 import static com.swirlds.streamloader.util.Utils.toHex;
 
-@SuppressWarnings("DuplicatedCode")
+@SuppressWarnings({ "DuplicatedCode", "unused", "deprecation" })
 public class ParallelRecordFileProcessor {
 	public static final int HASH_OBJECT_SIZE_BYTES = 8+4+4+4+48;
-	public static PartProcessedRecordFile processRecordFile(RecordFile recordFile) throws Exception {
+	public static PartProcessedRecordFile processRecordFile(RecordFile recordFile) {
 		ByteBuffer dataBuf = recordFile.data().rewind();
 		int fileVersionNumber = dataBuf.getInt();
 		switch (fileVersionNumber) {
@@ -214,14 +216,65 @@ public class ParallelRecordFileProcessor {
 				idSet.add(amount.getAccountID().getAccountNum());
 				transfersHbar.add(Json.createObjectBuilder()
 						.add("account", accountIdToString(amount.getAccountID()))
-						.add("account_shard", Long.toString(amount.getAccountID().getShardNum()))
-						.add("account_realm", Long.toString(amount.getAccountID().getRealmNum()))
 						.add("account_number", Long.toString(amount.getAccountID().getAccountNum()))
 						.add("amount", Long.toString(amount.getAmount()))
 						.add("is_approval", amount.getIsApproval())
 						.build()
 				);
+				balanceChanges.add( new BalanceChange(
+					amount.getAccountID().getAccountNum(),
+					BalanceChange.HBAR_TOKEN_TYPE,
+					amount.getAmount(),
+					consensusTimestampNanosLong
+				));
 			}
+			// scan token transfers list
+			final JsonArrayBuilder transfersTokens = Json.createArrayBuilder();
+			final JsonArrayBuilder transfersNfts = Json.createArrayBuilder();
+			for(TokenTransferList tokenTransferList : transactionRecordMessage.getTokenTransferListsList()) {
+				final long tokenEntityNum = tokenTransferList.getToken().getTokenNum();
+				for(AccountAmount amount : tokenTransferList.getTransfersList()) {
+					transfersTokens.add(Json.createObjectBuilder()
+							.add("account", accountIdToString(amount.getAccountID()))
+							.add("account_number", Long.toString(amount.getAccountID().getAccountNum()))
+							.add("amount", Long.toString(amount.getAmount()))
+							.add("token_id", Long.toString(tokenEntityNum))
+							.add("is_approval", amount.getIsApproval())
+							.build()
+					);
+					balanceChanges.add(new BalanceChange(
+							amount.getAccountID().getAccountNum(),
+							tokenEntityNum,
+							amount.getAmount(),
+							consensusTimestampNanosLong
+					));
+				}
+				for(NftTransfer nftTransfer : tokenTransferList.getNftTransfersList()) {
+					transfersNfts.add(Json.createObjectBuilder()
+							.add("sender_account", accountIdToString(nftTransfer.getSenderAccountID()))
+							.add("sender_account_number", Long.toString(nftTransfer.getSenderAccountID().getAccountNum()))
+							.add("receiver_account", accountIdToString(nftTransfer.getReceiverAccountID()))
+							.add("receiver_account_number", Long.toString(nftTransfer.getReceiverAccountID().getAccountNum()))
+							.add("serial_number", Long.toString(nftTransfer.getSerialNumber()))
+							.add("token_id", Long.toString(tokenEntityNum))
+							.add("is_approval", nftTransfer.getIsApproval())
+							.build()
+					);
+					balanceChanges.add(new BalanceChange(
+							nftTransfer.getSenderAccountID().getAccountNum(),
+							tokenEntityNum,
+							-1,
+							consensusTimestampNanosLong
+					));
+					balanceChanges.add(new BalanceChange(
+							nftTransfer.getReceiverAccountID().getAccountNum(),
+							tokenEntityNum,
+							-1,
+							consensusTimestampNanosLong
+					));
+				}
+			}
+
 			// build ids array from set of ids
 			JsonArrayBuilder ids = Json.createArrayBuilder();
 			idSet.forEach(ids::add);
@@ -250,6 +303,8 @@ public class ParallelRecordFileProcessor {
 					)
 					.add("consensus_timestamp",Long.toString(consensusTimestampNanosLong))
 					.add("transfers_hbar",transfersHbar.build())
+					.add("transfers_tokens",transfersTokens.build())
+					.add("transfers_nfts",transfersNfts.build())
 					.add("ids",ids.build());
 			return consensusTimestampNanosLong;
 		} catch (InvalidProtocolBufferException e) {

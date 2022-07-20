@@ -1,9 +1,10 @@
 package com.swirlds.streamloader.input;
 
+import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
-import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -72,7 +73,7 @@ public class DiskFileLoader implements FileLoader {
 	}
 
 	@Override
-	public LongLongHashMap loadInitialBalances() {
+	public ObjectLongHashMap<BalanceKey> loadInitialBalances() {
 		return BalancesLoader.loadBalances(Path.of("test-data/balances/"+INITIAL_BALANCE_FILE_NAME));
 	}
 }

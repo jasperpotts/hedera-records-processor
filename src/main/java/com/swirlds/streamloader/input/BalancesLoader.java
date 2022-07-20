@@ -1,8 +1,11 @@
 package com.swirlds.streamloader.input;
 
 import com.hedera.services.stream.proto.AllAccountBalances;
+import com.hedera.services.stream.proto.TokenUnitBalance;
+import com.swirlds.streamloader.data.BalanceChange;
+import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.util.ByteBufferInputStream;
-import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,7 +32,7 @@ public class BalancesLoader {
 	 * @param balancesFile path to balances file in CSV format
 	 * @return map of account to balance
 	 */
-	public static LongLongHashMap loadBalances(Path balancesFile) {
+	public static ObjectLongHashMap<BalanceKey> loadBalances(Path balancesFile) {
 		final String fileName = balancesFile.getFileName().toString();
 		System.out.println("fileName = " + fileName);
 		try {
@@ -51,7 +54,7 @@ public class BalancesLoader {
 	 * @param fileName name of balances file
 	 * @return map of account to balance
 	 */
-	public static LongLongHashMap loadBalances(ByteBuffer balancesFileContents, String fileName) {
+	public static ObjectLongHashMap<BalanceKey> loadBalances(ByteBuffer balancesFileContents, String fileName) {
 		System.out.println("fileName = " + fileName);
 		if (fileName.endsWith(".pb.gz")) {
 			return loadBalancesProtobuf(balancesFileContents);
@@ -68,8 +71,8 @@ public class BalancesLoader {
 	 * @param balancesFileContents path to balances file in CSV format
 	 * @return map of account to balance
 	 */
-	private static LongLongHashMap loadBalancesCSV(final ByteBuffer balancesFileContents) {
-		final LongLongHashMap balancesMap = new LongLongHashMap();
+	private static ObjectLongHashMap<BalanceKey> loadBalancesCSV(final ByteBuffer balancesFileContents) {
+		final ObjectLongHashMap<BalanceKey> balancesMap = new ObjectLongHashMap<>();
 		final String contents;
 		if (balancesFileContents.hasArray()) {
 			contents = new String(balancesFileContents.array(), StandardCharsets.UTF_8);
@@ -88,7 +91,7 @@ public class BalancesLoader {
 			} else {
 				//0,0,19,10000000000
 				final var columns = line.split(",");
-				balancesMap.put(Long.parseLong(columns[2]), Long.parseLong(columns[3]));
+				balancesMap.put(new BalanceKey(Long.parseLong(columns[2]), BalanceChange.HBAR_TOKEN_TYPE), Long.parseLong(columns[3]));
 			}
 		});
 		return balancesMap;
@@ -100,15 +103,21 @@ public class BalancesLoader {
 	 * @param balancesFileContents path to balances file in CSV format
 	 * @return map of account to balance
 	 */
-	private static LongLongHashMap loadBalancesProtobuf(final ByteBuffer balancesFileContents) {
-		final LongLongHashMap balancesMap = new LongLongHashMap();
+	private static ObjectLongHashMap<BalanceKey> loadBalancesProtobuf(final ByteBuffer balancesFileContents) {
+		final ObjectLongHashMap<BalanceKey> balancesMap = new ObjectLongHashMap<>();
 		try (final var input = new GZIPInputStream(new ByteBufferInputStream(balancesFileContents))) {
 			final AllAccountBalances balances = AllAccountBalances.parseFrom(input);
 			for (final var account : balances.getAllAccountsList()) {
 				balancesMap.put(
-						account.getAccountID().getAccountNum(),
-						account.getHbarBalance()
+					new BalanceKey(account.getAccountID().getAccountNum(), BalanceChange.HBAR_TOKEN_TYPE),
+					account.getHbarBalance()
 				);
+				for(final TokenUnitBalance tokenBalance: account.getTokenUnitBalancesList()) {
+					balancesMap.put(
+							new BalanceKey(account.getAccountID().getAccountNum(), tokenBalance.getTokenId().getTokenNum()),
+							tokenBalance.getBalance()
+					);
+				}
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);

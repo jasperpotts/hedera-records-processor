@@ -1,17 +1,17 @@
 package com.swirlds.streamloader;
 
+import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.PartProcessedRecordFile;
 import com.swirlds.streamloader.data.ProcessedRecordFile;
 import com.swirlds.streamloader.data.RecordFile;
-import com.swirlds.streamloader.input.GCPFileLoader;
 import com.swirlds.streamloader.input.FileLoader;
+import com.swirlds.streamloader.input.GCPFileLoader;
 import com.swirlds.streamloader.output.KafkaOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
-import com.swirlds.streamloader.processing.SequentialRecordFileProcessor;
 import com.swirlds.streamloader.processing.ParallelRecordFileProcessor;
+import com.swirlds.streamloader.processing.SequentialRecordFileProcessor;
 import com.swirlds.streamloader.util.PrettyStatusPrinter;
-import org.eclipse.collections.api.map.primitive.LongLongMap;
-import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import javax.json.Json;
 import java.time.Instant;
@@ -45,13 +45,13 @@ public class StreamDownloaderMain {
 //		try (OutputHandler outputHandler = new FileOutputHandler()) {
 		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
 			// start with initial balances
-			final LongLongHashMap balances = recordFileLoader.loadInitialBalances();
+			final ObjectLongHashMap<BalanceKey> balances = recordFileLoader.loadInitialBalances();
 			outputInitialBalances(balances, outputHandler);
 
 			// start threads for parallel processing of record files
 			doParallelProcessingOfRecordFiles(recordFileQueue, partProcessedRecordFileQueue);
 			// start thread for sequential processing of record files
-			doSequentialProcessingOfRecordFiles(partProcessedRecordFileQueue, processedRecordFileQueue);
+			doSequentialProcessingOfRecordFiles(partProcessedRecordFileQueue, processedRecordFileQueue, balances);
 			// start importing data into the pipeline we crated
 			recordFileLoader.startLoadingRecordFiles(recordFileQueue);
 			// start processing output in this thread, so we block till finished
@@ -62,12 +62,13 @@ public class StreamDownloaderMain {
 	/**
 	 * Send all initial balances as JSON to output handler
 	 */
-	public static void outputInitialBalances(LongLongMap hbarBalances, OutputHandler outputHandler) {
-		hbarBalances.forEachKeyValue((accountNum,tinyBarBalance) -> {
+	public static void outputInitialBalances(ObjectLongHashMap<BalanceKey> balances, OutputHandler outputHandler) {
+		balances.forEachKeyValue((balanceKey,tinyBarBalance) -> {
+			balances.put(balanceKey, tinyBarBalance);
 			outputHandler.outputAccountBalance(Json.createObjectBuilder()
 					.add("consensus_timestamp",INITIAL_BALANCE_FILE_TIMESTAMP)
-					.add("account_id","0.0."+accountNum)
-					.add("token_id","0")
+					.add("account_id",Long.toString(balanceKey.accountNum()))
+					.add("token_id",Long.toString(balanceKey.tokenType()))
 					.add("balance",Long.toString(tinyBarBalance))
 					.build());
 		});
@@ -108,7 +109,7 @@ public class StreamDownloaderMain {
 	}
 
 	private static void doSequentialProcessingOfRecordFiles(final ArrayBlockingQueue<Future<PartProcessedRecordFile>> partProcessedRecordFileQueue,
-			final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue) {
+			final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue, ObjectLongHashMap<BalanceKey> balances) {
 		// create thread to pull off first queue and schedule
 		final Thread thread = new Thread(() -> {
 			boolean lastFile = false;
@@ -118,7 +119,7 @@ public class StreamDownloaderMain {
 					if (partProcessedRecordFile != null) {
 						lastFile = partProcessedRecordFile.isLastFile();
 						final ProcessedRecordFile processedRecordFile = SequentialRecordFileProcessor.processBalances(
-								partProcessedRecordFile);
+								partProcessedRecordFile, balances);
 						processedRecordFileQueue.put(processedRecordFile);
 					}
 				} catch (ExecutionException | InterruptedException e) {
@@ -143,11 +144,15 @@ public class StreamDownloaderMain {
 				for (var transactionRowJson : processedRecordFile.transactionsRows()) {
 					outputHandler.outputTransaction(transactionRowJson);
 				}
+				for (var balanceJson : processedRecordFile.accountBalanceRows()) {
+					outputHandler.outputAccountBalance(balanceJson);
+				}
 				PrettyStatusPrinter.updateQueueSize("recordFileQueue",recordFileQueue.size());
 				PrettyStatusPrinter.updateQueueSize("partProcessedRecordFileQueue",partProcessedRecordFileQueue.size());
 				PrettyStatusPrinter.updateQueueSize("processedRecordFileQueue",processedRecordFileQueue.size());
 				PrettyStatusPrinter.printStatusUpdate(processedRecordFile.startConsensusTimestamp(),
-						processedRecordFile.transactionsRows().size());
+						processedRecordFile.transactionsRows().size(),
+						processedRecordFile.accountBalanceRows().size());
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 				System.err.flush();
