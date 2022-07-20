@@ -1,11 +1,13 @@
 package com.swirlds.streamloader.input;
 
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
+import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 
 import javax.json.Json;
 import javax.json.stream.JsonParser;
@@ -24,8 +26,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_NAME;
+import static com.swirlds.streamloader.input.BalancesLoader.loadBalances;
 
-public class GCPRecordFileLoader implements RecordFileLoader {
+
+public class GCPFileLoader implements FileLoader {
 	// create gcp client
 	private static final Storage STORAGE = StorageOptions.getDefaultInstance().getService();
 	public enum HederaNetwork {
@@ -51,7 +56,7 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 	private final Date startDate;
 	private final AtomicLong fileCount = new AtomicLong(0);
 
-	public GCPRecordFileLoader(final HederaNetwork network, final String nodeID,
+	public GCPFileLoader(final HederaNetwork network, final String nodeID,
 			final Date startDate) {
 		this.network = network;
 		this.nodeID = nodeID;
@@ -126,7 +131,16 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 		directoryLister.start();
 	}
 
-	public Iterable<Blob> listGcpDirectoryAsIterable(String gcpDirectoryPath) {
+	@Override
+	public LongLongHashMap loadInitialBalances() {
+		// download the initial first balances file.
+		final String initialBalanceFilePath = "accountBalances/balance"+ nodeID +"/"+ INITIAL_BALANCE_FILE_NAME;
+		final Blob blob = STORAGE.get(BlobId.of(network.getBucketName(),initialBalanceFilePath),
+				Storage.BlobGetOption.userProject(gcpProjectName));
+		return loadBalances(downloadBlob(blob),INITIAL_BALANCE_FILE_NAME);
+	}
+
+	private Iterable<Blob> listGcpDirectoryAsIterable(String gcpDirectoryPath) {
 		// The name for the new bucket
 		final String bucketName = network.getBucketName();
 		// List the file in the bucket
@@ -138,7 +152,7 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 		return blobs.iterateAll();
 	}
 
-	public ByteBuffer downloadBlob(Blob blob) {
+	private ByteBuffer downloadBlob(Blob blob) {
 		return ByteBuffer.wrap(blob.getContent(Blob.BlobSourceOption.userProject(gcpProjectName)));
 	}
 

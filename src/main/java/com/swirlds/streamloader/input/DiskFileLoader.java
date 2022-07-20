@@ -3,6 +3,7 @@ package com.swirlds.streamloader.input;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
+import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -14,15 +15,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_NAME;
+
 /**
  * Scan a directory loading all record files
  */
-public class DiskRecordFileLoader implements RecordFileLoader {
+public class DiskFileLoader implements FileLoader {
 	private final Path recordFileDirectory;
 	private AtomicLong fileCount = new AtomicLong(0);
 	private AtomicReference<byte[]> prevFileHash = new AtomicReference<>(new byte[48]);
 
-	public DiskRecordFileLoader(final Path recordFileDirectory) {
+	public DiskFileLoader(final Path recordFileDirectory) {
 		this.recordFileDirectory = recordFileDirectory;
 	}
 
@@ -66,5 +69,10 @@ public class DiskRecordFileLoader implements RecordFileLoader {
 		return Files.find(directory, Integer.MAX_VALUE,
 				(filePath, fileAttr) -> fileAttr.isRegularFile() && filePath.getFileName().toString().endsWith(".rcd")
 		);
+	}
+
+	@Override
+	public LongLongHashMap loadInitialBalances() {
+		return BalancesLoader.loadBalances(Path.of("test-data/balances/"+INITIAL_BALANCE_FILE_NAME));
 	}
 }

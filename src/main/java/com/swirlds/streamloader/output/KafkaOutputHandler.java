@@ -9,7 +9,6 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import javax.json.JsonObject;
 import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,6 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class KafkaOutputHandler implements OutputHandler {
 	private final static String TRANSACTIONS_TOPIC = "transaction_record_new";
 	private final static String RECORDS_TOPIC = "record_file_new";
+	private final static String BALANCES_TOPIC = "balance";
 	private final Producer<String, String> producer;
 
 	private final ArrayBlockingQueue<Future<RecordMetadata>> futures = new ArrayBlockingQueue<>(10_000);
@@ -68,6 +68,16 @@ public class KafkaOutputHandler implements OutputHandler {
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public void outputAccountBalance(final JsonObject balanceJson) {
+		try {
+			futures.put(producer.send(new ProducerRecord<>(BALANCES_TOPIC,balanceJson.toString())));
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+
 	}
 
 	@Override

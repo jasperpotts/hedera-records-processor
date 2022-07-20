@@ -3,17 +3,17 @@ package com.swirlds.streamloader;
 import com.swirlds.streamloader.data.PartProcessedRecordFile;
 import com.swirlds.streamloader.data.ProcessedRecordFile;
 import com.swirlds.streamloader.data.RecordFile;
-import com.swirlds.streamloader.input.DiskRecordFileLoader;
-import com.swirlds.streamloader.input.GCPRecordFileLoader;
-import com.swirlds.streamloader.input.RecordFileLoader;
-import com.swirlds.streamloader.output.FileOutputHandler;
+import com.swirlds.streamloader.input.GCPFileLoader;
+import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.output.KafkaOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.SequentialRecordFileProcessor;
 import com.swirlds.streamloader.processing.ParallelRecordFileProcessor;
 import com.swirlds.streamloader.util.PrettyStatusPrinter;
+import org.eclipse.collections.api.map.primitive.LongLongMap;
+import org.eclipse.collections.impl.map.mutable.primitive.LongLongHashMap;
 
-import java.nio.file.Path;
+import javax.json.Json;
 import java.time.Instant;
 import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -22,6 +22,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_TIMESTAMP;
 
 public class StreamDownloaderMain {
 	// Create queue for future record files
@@ -35,13 +37,17 @@ public class StreamDownloaderMain {
 //		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams"));
 //		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/v2"));
 //		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/mainnet-0.0.3"));
-		RecordFileLoader recordFileLoader = new GCPRecordFileLoader(
-				GCPRecordFileLoader.HederaNetwork.MAINNET,
+		FileLoader recordFileLoader = new GCPFileLoader(
+				GCPFileLoader.HederaNetwork.MAINNET,
 				"0.0.3",
 				Date.from(Instant.EPOCH)
 		);
 //		try (OutputHandler outputHandler = new FileOutputHandler()) {
 		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
+			// start with initial balances
+			final LongLongHashMap balances = recordFileLoader.loadInitialBalances();
+			outputInitialBalances(balances, outputHandler);
+
 			// start threads for parallel processing of record files
 			doParallelProcessingOfRecordFiles(recordFileQueue, partProcessedRecordFileQueue);
 			// start thread for sequential processing of record files
@@ -51,6 +57,20 @@ public class StreamDownloaderMain {
 			// start processing output in this thread, so we block till finished
 			doOutput(processedRecordFileQueue, outputHandler);
 		}
+	}
+
+	/**
+	 * Send all initial balances as JSON to output handler
+	 */
+	public static void outputInitialBalances(LongLongMap hbarBalances, OutputHandler outputHandler) {
+		hbarBalances.forEachKeyValue((accountNum,tinyBarBalance) -> {
+			outputHandler.outputAccountBalance(Json.createObjectBuilder()
+					.add("consensus_timestamp",INITIAL_BALANCE_FILE_TIMESTAMP)
+					.add("account_id","0.0."+accountNum)
+					.add("token_id","0")
+					.add("balance",Long.toString(tinyBarBalance))
+					.build());
+		});
 	}
 
 	/**

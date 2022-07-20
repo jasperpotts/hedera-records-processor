@@ -43,12 +43,14 @@ dependencies {
 	implementation 'org.apache.kafka:kafka-clients:3.2.0'
 	implementation 'org.jetbrains:annotations:20.1.0'
 	implementation 'org.slf4j:slf4j-jdk14:1.7.36'
+	implementation 'org.eclipse.collections:eclipse-collections:11.1.0'
 }
 
 sourceSets {
 	main {
 		proto {
 			srcDir 'hedera-protobufs/services'
+			srcDir 'hedera-protobufs/streams'
 		}
 	}
 }

@@ -14,10 +14,13 @@ public class FileOutputHandler implements OutputHandler {
 	private final Path dataDir = Path.of("build/OUTPUT_DATA");
 	private int transactionCount = 0;
 	private int recordCount = 0;
+	private int balanceCount = 0;
 	private int recordFileNumber = 0;
 	private int transactionFileNumber = 0;
+	private int balanceFileNumber = 0;
 	private BufferedWriter transactionWriter;
 	private BufferedWriter recordWriter;
+	private BufferedWriter balanceWriter;
 
 	public FileOutputHandler() {
 		try {
@@ -55,6 +58,20 @@ public class FileOutputHandler implements OutputHandler {
 		}
 	}
 
+	private void newBalanceFile() {
+		balanceCount = 0;
+		try {
+			if (balanceWriter != null) {
+				balanceWriter.flush();
+				balanceWriter.close();
+			}
+			balanceWriter = Files.newBufferedWriter(
+					dataDir.resolve("balances_"+(++balanceFileNumber)+".json"));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	@Override
 	public void outputTransaction(final JsonObject transactionJson) {
 		try {
@@ -75,6 +92,17 @@ public class FileOutputHandler implements OutputHandler {
 			throw new RuntimeException(e);
 		}
 		if ((++recordCount) >= MAX_OBJECTS_PER_FILE) newRecordFile();
+	}
+
+	@Override
+	public void outputAccountBalance(final JsonObject balanceJson) {
+		try {
+			if (balanceWriter == null) newRecordFile();
+			balanceWriter.write(balanceJson.toString()+"\n");
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		if ((++balanceCount) >= MAX_OBJECTS_PER_FILE) newRecordFile();
 	}
 
 	@Override
