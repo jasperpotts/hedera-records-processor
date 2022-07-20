@@ -12,6 +12,8 @@ import java.util.List;
  * @param accountBalanceRows
  */
 public record ProcessedRecordFile(
+	boolean isLastFile,
+	long startConsensusTimestamp,
 	List<JsonObject> transactionsRows,
 	JsonObject recordFileRow,
 	List<JsonObject> accountBalanceRows

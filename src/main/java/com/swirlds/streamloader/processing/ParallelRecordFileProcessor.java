@@ -35,12 +35,14 @@ public class ParallelRecordFileProcessor {
 	public static PartProcessedRecordFile processRecordFile(RecordFile recordFile) throws Exception {
 		ByteBuffer dataBuf = recordFile.data().rewind();
 		int fileVersionNumber = dataBuf.getInt();
-		if (fileVersionNumber == 2) {
-			return processRecordFileV2(recordFile, dataBuf);
-		} else if (fileVersionNumber == 5) {
-			return processRecordFileV5(recordFile, dataBuf);
-		} else {
-			return null;
+		switch (fileVersionNumber) {
+			case 2:
+				return processRecordFileV2(recordFile, dataBuf);
+			case 5:
+				return processRecordFileV5(recordFile, dataBuf);
+			default:
+				System.err.println("Encountered file with unsupported version number of ["+fileVersionNumber+"] - SKIPPING!");
+				return null;
 		}
 	}
 
@@ -77,7 +79,8 @@ public class ParallelRecordFileProcessor {
 		JsonObject recordFileRow = createRecordFileRow(
 				startConsensusTime, endConsensusTime, recordFile,
 				"0."+hapiVersion+".0", transactionRows.size(),gasUsed);
-		return new PartProcessedRecordFile(startConsensusTime,transactionRows, recordFileRow, balanceChanges);
+		return new PartProcessedRecordFile(recordFile.isLastFile(), startConsensusTime, transactionRows,
+				recordFileRow, balanceChanges);
 	}
 
 	public static PartProcessedRecordFile processRecordFileV5(RecordFile recordFile, ByteBuffer dataBuf) {
@@ -116,7 +119,8 @@ public class ParallelRecordFileProcessor {
 		// ==== CREATE RECORD ROW JSON
 		JsonObject recordFileRow = createRecordFileRow(startConsensusTime, endConsensusTime, recordFile,
 				hapiVersionMajor+"."+hapiVersionMinor+"."+hapiVersionPatch,transactionRows.size(),gasUsed);
-		return new PartProcessedRecordFile(startConsensusTime,transactionRows, recordFileRow, balanceChanges);
+		return new PartProcessedRecordFile(recordFile.isLastFile(), startConsensusTime, transactionRows,
+				recordFileRow, balanceChanges);
 	}
 
 	/** Read a V5 stream running hash from buffer */

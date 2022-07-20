@@ -1,17 +1,17 @@
 package com.swirlds.streamloader.input;
 
+import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.PreCompletedFuture;
 import com.swirlds.streamloader.util.Utils;
-import com.swirlds.streamloader.data.RecordFile;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -19,41 +19,42 @@ import java.util.stream.Stream;
  */
 public class DiskRecordFileLoader implements RecordFileLoader {
 	private final Path recordFileDirectory;
-	private final AtomicLong fileCount = new AtomicLong(0);
-	private final AtomicReference<byte[]> prevFileHash = new AtomicReference<>(new byte[48]);
+	private AtomicLong fileCount = new AtomicLong(0);
+	private AtomicReference<byte[]> prevFileHash = new AtomicReference<>(new byte[48]);
 
 	public DiskRecordFileLoader(final Path recordFileDirectory) {
 		this.recordFileDirectory = recordFileDirectory;
 	}
 
 	@Override
-	public void startLoadingRecordFiles(final Consumer<RecordFile> recordFileConsumer) {
+	public void startLoadingRecordFiles(final ArrayBlockingQueue<Future<RecordFile>> recordFileQueue) {
 		new Thread(() -> {
-			final long START = System.currentTimeMillis();
 			try {
-				findRecordStreams(recordFileDirectory)
-						.forEach(file -> {
-							try {
-								final ByteBuffer dataBuf = Utils.readFileFully(file);
-								final byte[] fileHash = Utils.hashShar384(dataBuf);
-								final RecordFile recordFile = new RecordFile(
-										dataBuf,
-										fileCount.incrementAndGet(),
-										Files.size(file),
-										fileHash,
-										new PreCompletedFuture<>(prevFileHash.getAndSet(fileHash)),
-										file.getFileName().toString()
-								);
-								recordFileConsumer.accept(recordFile);
-							} catch (IOException e) {
-								throw new RuntimeException(e);
-							}
-						});
+				Path[] recordFilePaths = findRecordStreams(recordFileDirectory).toArray(Path[]::new);
+				System.out.println("Processing " + recordFilePaths.length+" files...");
+				for (int i = 0; i < recordFilePaths.length; i++) {
+					final Path file = recordFilePaths[i];
+					try {
+						final ByteBuffer dataBuf = Utils.readFileFully(file);
+						final byte[] fileHash = Utils.hashShar384(dataBuf);
+						final RecordFile recordFile = new RecordFile(
+								i == recordFilePaths.length -1,
+								dataBuf,
+								fileCount.incrementAndGet(),
+								Files.size(file),
+								fileHash,
+								new PreCompletedFuture<>(prevFileHash.getAndSet(fileHash)),
+								file.getFileName().toString()
+						);
+						recordFileQueue.put(new PreCompletedFuture<>(recordFile));
+					} catch (IOException | InterruptedException e) {
+						throw new RuntimeException(e);
+					}
+				}
 			} catch (Exception e) {
-				throw new RuntimeException(e);
-			} finally {
-				final var  took = Duration.ofMillis(System.currentTimeMillis() - START);
-				System.out.println("took = " + took);
+				e.printStackTrace();
+				System.err.flush();
+				System.exit(1);
 			}
 		},"Record File Loader").start();
 	}

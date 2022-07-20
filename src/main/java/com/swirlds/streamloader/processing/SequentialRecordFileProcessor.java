@@ -11,6 +11,8 @@ public class SequentialRecordFileProcessor {
 	 */
 	public static ProcessedRecordFile processBalances(PartProcessedRecordFile partProcessedRecordFile) {
 		return new ProcessedRecordFile(
+				partProcessedRecordFile.isLastFile(),
+				partProcessedRecordFile.startConsensusTimestamp(),
 				partProcessedRecordFile.transactionsRows(),
 				partProcessedRecordFile.recordFileRow(),
 				Collections.emptyList());

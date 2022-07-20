@@ -14,25 +14,20 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 
 
 public class GCPRecordFileLoader implements RecordFileLoader {
-	private static final int cpuCores = Runtime.getRuntime().availableProcessors();
 	// create gcp client
 	private static final Storage STORAGE = StorageOptions.getDefaultInstance().getService();
-	/** Max number of futures to queue */
-	private static final int BATCH_SIZE = 10_000;
 	public enum HederaNetwork {
 		DEMO("hedera-demo-streams"),
 		MAINNET("hedera-mainnet-streams"),
@@ -80,78 +75,54 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 		}
 	}
 
-	@SuppressWarnings({ "WhileLoopReplaceableByForEach", "BusyWait" })
 	@Override
-	public void startLoadingRecordFiles(final Consumer<RecordFile> recordFileConsumer) {
+	public void startLoadingRecordFiles(final ArrayBlockingQueue<Future<RecordFile>> recordFileQueue) {
 		// create pool of thread to do file downloading
 		final ThreadGroup downloadingExecutorsThreadGroup = new ThreadGroup("downloaders");
 		final AtomicLong downloadingThreadCount = new AtomicLong();
-		final ExecutorService downloadingExecutorService = Executors.newFixedThreadPool(cpuCores,
-				runnable -> new Thread(downloadingExecutorsThreadGroup, runnable, "downloader-"+downloadingThreadCount.incrementAndGet()));
-
-		final ConcurrentLinkedDeque<Future<RecordFile>> futures = new ConcurrentLinkedDeque<>();
-		final AtomicBoolean finishedListing = new AtomicBoolean(false);
+		final ExecutorService downloadingExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+				runnable -> {
+					Thread thread = new Thread(downloadingExecutorsThreadGroup, runnable, "downloader-"+downloadingThreadCount.incrementAndGet());
+					thread.setDaemon(true);
+					return thread;
+				});
 		final Thread directoryLister = new Thread(() -> {
 			try {
 				final var iterableOverBlobs = listGcpDirectoryAsIterable("recordstreams/record" + nodeID + "/").iterator();
 				Future<RecordFile> future = null;
 				while(iterableOverBlobs.hasNext()) {
-					if (futures.size() < BATCH_SIZE) {
-						// get next blob to download
-						final Blob recordFileBlob = iterableOverBlobs.next();
-						// only process records files
-						if (recordFileBlob.getName().endsWith(".rcd")) {
-							final Future<RecordFile> finalFuture = future;
-							// add a task to download and parse
-							final Callable<RecordFile> newTask = () -> {
-								// download
-								final ByteBuffer dataBuf = downloadBlob(recordFileBlob);
-								return new RecordFile(
-										dataBuf,
-										fileCount.incrementAndGet(),
-										recordFileBlob.getSize(),
-										Utils.hashShar384(dataBuf),
-										(finalFuture == null) ? new PreCompletedFuture<>(new byte[48]) : new PrevHashFuture(finalFuture),
-										recordFileBlob.getName()
-								);
-							};
-							// schedule new download task to run and add it's future to end of list
-							future = downloadingExecutorService.submit(newTask);
-							futures.add(future);
-						}
-					} else { // list of futures is full
-						Thread.sleep(1000);
+					// get next blob to download
+					final Blob recordFileBlob = iterableOverBlobs.next();
+					// only process records files
+					if (recordFileBlob.getName().endsWith(".rcd")) {
+						final Future<RecordFile> finalFuture = future;
+						// add a task to download and parse
+						final Callable<RecordFile> newTask = () -> {
+							// download
+							final ByteBuffer dataBuf = downloadBlob(recordFileBlob);
+							return new RecordFile(
+									iterableOverBlobs.hasNext(),
+									dataBuf,
+									fileCount.incrementAndGet(),
+									recordFileBlob.getSize(),
+									Utils.hashShar384(dataBuf),
+									(finalFuture == null) ? new PreCompletedFuture<>(new byte[48]) : new PrevHashFuture(finalFuture),
+									recordFileBlob.getName()
+							);
+						};
+						// schedule new download task to run and add it's future to end of list
+						future = downloadingExecutorService.submit(newTask);
+						recordFileQueue.put(future);
 					}
 				}
 			} catch (InterruptedException e) {
 				e.printStackTrace();
-				System.exit(1);
-			} finally {
-				finishedListing.set(true);
-			}
-		}, "directoryLister");
-		final Thread callbackInOrderThread = new Thread(() -> {
-			try {
-				while(!finishedListing.get()) {
-					final Future<RecordFile> future = futures.poll();
-					if (future != null) {
-						try {
-							recordFileConsumer.accept(future.get());
-						} catch (ExecutionException e) {
-							e.printStackTrace();
-						}
-					} else { // wait for downloaders to catch up
-						Thread.sleep(1000);
-					}
-				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+				System.err.flush();
 				System.exit(1);
 			}
 		}, "directoryLister");
 		// start threads
 		directoryLister.start();
-		callbackInOrderThread.start();
 	}
 
 	public Iterable<Blob> listGcpDirectoryAsIterable(String gcpDirectoryPath) {

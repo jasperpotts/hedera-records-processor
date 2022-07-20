@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.Future;
 
 public record RecordFile(
+		boolean isLastFile,
 		ByteBuffer data,
 		long fileNumber,
 		long sizeBytes,

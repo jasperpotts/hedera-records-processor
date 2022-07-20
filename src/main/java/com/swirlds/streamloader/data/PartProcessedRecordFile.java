@@ -12,6 +12,7 @@ import java.util.List;
  * @param balanceChanges
  */
 public record PartProcessedRecordFile(
+	boolean isLastFile,
 	long startConsensusTimestamp,
 	List<JsonObject> transactionsRows,
 	JsonObject recordFileRow,
