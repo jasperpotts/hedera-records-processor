@@ -74,6 +74,6 @@ public class DiskFileLoader implements FileLoader {
 
 	@Override
 	public ObjectLongHashMap<BalanceKey> loadInitialBalances() {
-		return BalancesLoader.loadBalances(Path.of("test-data/balances/"+INITIAL_BALANCE_FILE_NAME));
+		return BalancesLoader.loadBalances(Path.of("test-data/accountBalances/mainnet/"+INITIAL_BALANCE_FILE_NAME));
 	}
 }

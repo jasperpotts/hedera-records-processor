@@ -97,7 +97,7 @@ public class FileOutputHandler implements OutputHandler {
 	@Override
 	public void outputAccountBalance(final JsonObject balanceJson) {
 		try {
-			if (balanceWriter == null) newRecordFile();
+			if (balanceWriter == null) newBalanceFile();
 			balanceWriter.write(balanceJson.toString()+"\n");
 		} catch (IOException e) {
 			throw new RuntimeException(e);

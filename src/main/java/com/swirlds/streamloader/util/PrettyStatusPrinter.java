@@ -1,5 +1,6 @@
 package com.swirlds.streamloader.util;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,8 +42,13 @@ public class PrettyStatusPrinter {
 			@SuppressWarnings("OptionalGetWithoutIsPresent") final int averageSpeed = speedsForRollingAverage.isEmpty() ?
 					0 : (int)speedsForRollingAverage.stream().mapToInt(Integer::intValue).average().getAsDouble();
 			final Instant consensusInstant = getInstantFromNanoEpicLong(consensusTime);
-			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime -- Transactions %,10d @ %,4.1f/sec -- Files %,7d @ %,4.1f/sec -- BalanceUpdates %,7d %s",
-					consensusInstant.toString(), averageSpeed, transactionsProcessed, transactionsProcessedASecond,
+			final Duration consensusTimeTillNow = Duration.between(getInstantFromNanoEpicLong(consensusElapsedNanos), Instant.now());
+			final Duration eta = consensusTimeTillNow.dividedBy(averageSpeed);
+
+			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime, ETA %4d:%02dh -- Transactions %,10d @ %,4.1f/sec -- Files %,7d @ %,4.1f/sec -- BalanceUpdates %,7d %s",
+					consensusInstant.toString(), averageSpeed,
+					eta.toHours(), eta.toMinutesPart(),
+					transactionsProcessed, transactionsProcessedASecond,
 					recordFilesProcessed, recordFilesProcessedASecond, balanceUpdatesProcessed,
 					latestQueueSizes.reduceEntries(1,
 							entry -> entry.getKey() + "=" + entry.getValue(), (str1, str2) -> str1 + ", " + str2));

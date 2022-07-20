@@ -4,8 +4,11 @@ import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.PartProcessedRecordFile;
 import com.swirlds.streamloader.data.ProcessedRecordFile;
 import com.swirlds.streamloader.data.RecordFile;
+import com.swirlds.streamloader.input.DiskFileLoader;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GCPFileLoader;
+import com.swirlds.streamloader.output.FileOutputHandler;
+import com.swirlds.streamloader.output.KafkaBatchedOutputHandler;
 import com.swirlds.streamloader.output.KafkaOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.ParallelRecordFileProcessor;
@@ -14,6 +17,7 @@ import com.swirlds.streamloader.util.PrettyStatusPrinter;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import javax.json.Json;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -34,9 +38,9 @@ public class StreamDownloaderMain {
 	private static final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue = new ArrayBlockingQueue<>(1000);
 
 	public static void main(String[] args) throws Exception {
-//		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams"));
-//		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/v2"));
-//		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/mainnet-0.0.3"));
+//		FileLoader recordFileLoader = new DiskFileLoader(Path.of("test-data/recordstreams"));
+//		FileLoader recordFileLoader = new DiskFileLoader(Path.of("test-data/recordstreams/v2"));
+//		FileLoader recordFileLoader = new DiskFileLoader(Path.of("test-data/recordstreams/mainnet-0.0.3"));
 		FileLoader recordFileLoader = new GCPFileLoader(
 				GCPFileLoader.HederaNetwork.MAINNET,
 				"0.0.3",
