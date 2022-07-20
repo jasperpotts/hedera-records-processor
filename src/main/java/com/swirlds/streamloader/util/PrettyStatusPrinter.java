@@ -2,26 +2,30 @@ package com.swirlds.streamloader.util;
 
 import java.time.Instant;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.swirlds.streamloader.util.Utils.getInstantFromNanoEpicLong;
 
 public class PrettyStatusPrinter {
-	private final LinkedList<Long> listOfPrevConsensusTimes = new LinkedList<>();
-	private final LinkedList<Integer> speedsForRollingAverage = new LinkedList<>();
-	private long lastResetTime = System.nanoTime();
-	private long transactionsProcessed = 0;
-	private long recordFilesProcessed = 0;
-	private double transactionsProcessedASecond = 0;
-	private double recordFilesProcessedASecond = 0;
+	private static final LinkedList<Long> listOfPrevConsensusTimes = new LinkedList<>();
+	private static final LinkedList<Integer> speedsForRollingAverage = new LinkedList<>();
+	private static long lastResetTime = System.nanoTime();
+	private static long transactionsProcessed = 0;
+	private static long recordFilesProcessed = 0;
+	private static ConcurrentHashMap<String,Integer> latestQueueSizes = new ConcurrentHashMap<>();
+
 
 	/**
 	 * Called once per record file
 	 */
-	public void printStatusUpdate(long consensusTime, long numOfTransactionsProcessed) {
+	public static void printStatusUpdate(long consensusTime, long numOfTransactionsProcessed) {
 		recordFilesProcessed ++;
 		transactionsProcessed += numOfTransactionsProcessed;
 		listOfPrevConsensusTimes.add(consensusTime);
-		if (listOfPrevConsensusTimes.size() >= 100) {
+		if (listOfPrevConsensusTimes.size() >= 500) {
 			final long now = System.nanoTime();
 			final long realElapsedNanos = now - lastResetTime;
 			lastResetTime = now;
@@ -31,14 +35,21 @@ public class PrettyStatusPrinter {
 			listOfPrevConsensusTimes.clear();
 
 			final double elapsedSeconds = (double)realElapsedNanos / 1_000_000_000.0;
-			transactionsProcessedASecond = ( (double)numOfTransactionsProcessed/ elapsedSeconds);
-			recordFilesProcessedASecond = ( (double)100/ elapsedSeconds);
+			double transactionsProcessedASecond = ((double) numOfTransactionsProcessed / elapsedSeconds);
+			double recordFilesProcessedASecond = ((double) 100 / elapsedSeconds);
+
+			@SuppressWarnings("OptionalGetWithoutIsPresent") final int averageSpeed = speedsForRollingAverage.isEmpty() ?
+					0 : (int)speedsForRollingAverage.stream().mapToInt(Integer::intValue).average().getAsDouble();
+			final Instant consensusInstant = getInstantFromNanoEpicLong(consensusTime);
+			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime -- Transactions %,10d @ %,4.1f/sec-- Files %,7d @ %,4.1f/sec %s",
+					consensusInstant.toString(), averageSpeed, transactionsProcessed, transactionsProcessedASecond,
+					recordFilesProcessed, recordFilesProcessedASecond,
+					latestQueueSizes.reduceEntries(1,
+							entry -> entry.getKey() + "=" + entry.getValue(), (str1, str2) -> str1 + ", " + str2));
 		}
-		@SuppressWarnings("OptionalGetWithoutIsPresent") final int averageSpeed = speedsForRollingAverage.isEmpty() ?
-				0 : (int)speedsForRollingAverage.stream().mapToInt(Integer::intValue).average().getAsDouble();
-		final Instant consensusInstant = getInstantFromNanoEpicLong(consensusTime);
-		System.out.printf("\rProcessing Time = %S @ %,dx realtime -- Transactions %,d @ %,.1f/sec-- Files %,d @ %,.1f/sec",
-				consensusInstant.toString(), averageSpeed, transactionsProcessed, transactionsProcessedASecond,
-				recordFilesProcessed, recordFilesProcessedASecond);
+	}
+
+	public static void updateQueueSize(String name, int size) {
+		latestQueueSizes.put(name,size);
 	}
 }

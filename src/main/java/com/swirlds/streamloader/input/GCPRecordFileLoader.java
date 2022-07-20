@@ -96,12 +96,13 @@ public class GCPRecordFileLoader implements RecordFileLoader {
 					// only process records files
 					if (recordFileBlob.getName().endsWith(".rcd")) {
 						final Future<RecordFile> finalFuture = future;
+						final boolean isLastFile = !iterableOverBlobs.hasNext();
 						// add a task to download and parse
 						final Callable<RecordFile> newTask = () -> {
 							// download
 							final ByteBuffer dataBuf = downloadBlob(recordFileBlob);
 							return new RecordFile(
-									iterableOverBlobs.hasNext(),
+									isLastFile,
 									dataBuf,
 									fileCount.incrementAndGet(),
 									recordFileBlob.getSize(),

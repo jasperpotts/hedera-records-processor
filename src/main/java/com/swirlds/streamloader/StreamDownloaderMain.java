@@ -24,25 +24,24 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class StreamDownloaderMain {
+	// Create queue for future record files
+	private static final ArrayBlockingQueue<Future<RecordFile>> recordFileQueue = new ArrayBlockingQueue<>(1000);
+	// Create queue for future PartProcessedRecordFiles
+	private static final ArrayBlockingQueue<Future<PartProcessedRecordFile>> partProcessedRecordFileQueue = new ArrayBlockingQueue<>(1000);
+	// Create queue for ProcessedRecordFiles, these are fully processed and ready for output
+	private static final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue = new ArrayBlockingQueue<>(1000);
+
 	public static void main(String[] args) throws Exception {
-		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams"));
+//		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams"));
 //		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/v2"));
 //		RecordFileLoader recordFileLoader = new DiskRecordFileLoader(Path.of("test-data/recordstreams/mainnet-0.0.3"));
-//		RecordFileLoader recordFileLoader = new GCPRecordFileLoader(
-//				GCPRecordFileLoader.HederaNetwork.MAINNET,
-//				"0.0.3",
-//				Date.from(Instant.EPOCH)
-//		);
-		try (OutputHandler outputHandler = new FileOutputHandler()) {
-//		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
-			// Create status printer for printing nice output to console of progress
-			final PrettyStatusPrinter prettyStatusPrinter = new PrettyStatusPrinter();
-			// Create queue for future record files
-			final ArrayBlockingQueue<Future<RecordFile>> recordFileQueue = new ArrayBlockingQueue<>(1000);
-			// Create queue for future PartProcessedRecordFiles
-			final ArrayBlockingQueue<Future<PartProcessedRecordFile>> partProcessedRecordFileQueue = new ArrayBlockingQueue<>(1000);
-			// Create queue for ProcessedRecordFiles, these are fully processed and ready for output
-			final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue = new ArrayBlockingQueue<>(1000);
+		RecordFileLoader recordFileLoader = new GCPRecordFileLoader(
+				GCPRecordFileLoader.HederaNetwork.MAINNET,
+				"0.0.3",
+				Date.from(Instant.EPOCH)
+		);
+//		try (OutputHandler outputHandler = new FileOutputHandler()) {
+		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
 			// start threads for parallel processing of record files
 			doParallelProcessingOfRecordFiles(recordFileQueue, partProcessedRecordFileQueue);
 			// start thread for sequential processing of record files
@@ -50,7 +49,7 @@ public class StreamDownloaderMain {
 			// start importing data into the pipeline we crated
 			recordFileLoader.startLoadingRecordFiles(recordFileQueue);
 			// start processing output in this thread, so we block till finished
-			doOutput(processedRecordFileQueue, outputHandler, prettyStatusPrinter);
+			doOutput(processedRecordFileQueue, outputHandler);
 		}
 	}
 
@@ -114,7 +113,7 @@ public class StreamDownloaderMain {
 	}
 
 	private static void doOutput(final ArrayBlockingQueue<ProcessedRecordFile> processedRecordFileQueue,
-		OutputHandler outputHandler, PrettyStatusPrinter prettyStatusPrinter) {
+		OutputHandler outputHandler) {
 		boolean lastFile = false;
 		do {
 			try {
@@ -124,7 +123,10 @@ public class StreamDownloaderMain {
 				for (var transactionRowJson : processedRecordFile.transactionsRows()) {
 					outputHandler.outputTransaction(transactionRowJson);
 				}
-				prettyStatusPrinter.printStatusUpdate(processedRecordFile.startConsensusTimestamp(),
+				PrettyStatusPrinter.updateQueueSize("recordFileQueue",recordFileQueue.size());
+				PrettyStatusPrinter.updateQueueSize("partProcessedRecordFileQueue",partProcessedRecordFileQueue.size());
+				PrettyStatusPrinter.updateQueueSize("processedRecordFileQueue",processedRecordFileQueue.size());
+				PrettyStatusPrinter.printStatusUpdate(processedRecordFile.startConsensusTimestamp(),
 						processedRecordFile.transactionsRows().size());
 			} catch (InterruptedException e) {
 				e.printStackTrace();

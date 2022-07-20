@@ -1,5 +1,6 @@
 package com.swirlds.streamloader.output;
 
+import com.swirlds.streamloader.util.PrettyStatusPrinter;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -24,7 +25,7 @@ public class KafkaOutputHandler implements OutputHandler {
 	public KafkaOutputHandler(String serverIP) {
 		Properties props = new Properties();
 		props.put("bootstrap.servers", serverIP+":9092");
-		props.put("linger.ms", 1000);
+		props.put("linger.ms", 10000);
 		props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producer = new KafkaProducer<>(props);
@@ -51,13 +52,22 @@ public class KafkaOutputHandler implements OutputHandler {
 
 	@Override
 	public void outputTransaction(final JsonObject transactionJson) {
-		futures.add(producer.send(new ProducerRecord<>(TRANSACTIONS_TOPIC,transactionJson.toString())));
+		try {
+			futures.put(producer.send(new ProducerRecord<>(TRANSACTIONS_TOPIC,transactionJson.toString())));
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 
 	@Override
 	public void outputRecordFile(final JsonObject recordFileJson) {
-		futures.add(producer.send(new ProducerRecord<>(RECORDS_TOPIC,recordFileJson.toString())));
+		try {
+			futures.put(producer.send(new ProducerRecord<>(RECORDS_TOPIC,recordFileJson.toString())));
+			PrettyStatusPrinter.updateQueueSize("kafka",futures.size());
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	@Override
