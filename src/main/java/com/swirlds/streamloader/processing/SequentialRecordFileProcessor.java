@@ -14,11 +14,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Does all processing on the records stream that has to be done sequentially and can't be done in parallel. For example
+ * calculating balances, as each one depends on the transactions before it.
+ */
 public class SequentialRecordFileProcessor {
 	/**
 	 * Given a part processed record file apply all balance deltas and compute new account balances
 	 */
-	public static ProcessedRecordFile processBalances(PartProcessedRecordFile partProcessedRecordFile,
+	public static ProcessedRecordFile processRecordFile(PartProcessedRecordFile partProcessedRecordFile,
 			ObjectLongHashMap<BalanceKey> balances) {
 		// map for all balance changes from this file, we only need the final balance after all transactions in the file
 		final Map<BalanceKey, BalanceValue> balancesAfterAllTransactionsInFile = new HashMap<>();
@@ -31,7 +35,7 @@ public class SequentialRecordFileProcessor {
 			balancesAfterAllTransactionsInFile.put(balanceKey,
 					new BalanceValue(newBalance, balanceChange.consensusTimeStamp()));
 		}
-		// create json or bvalance changes
+		// create json or balance changes
 		final List<JsonObject> balanceChangesForFile = new ArrayList<>();
 		for (Map.Entry<BalanceKey, BalanceValue> balanceChange: balancesAfterAllTransactionsInFile.entrySet()) {
 			balanceChangesForFile.add(Json.createObjectBuilder()

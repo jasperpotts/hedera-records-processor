@@ -4,6 +4,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.hederahashgraph.api.proto.java.AccountAmount;
 import com.hederahashgraph.api.proto.java.AccountID;
+import com.hederahashgraph.api.proto.java.ContractFunctionResult;
+import com.hederahashgraph.api.proto.java.ContractID;
+import com.hederahashgraph.api.proto.java.ContractLoginfo;
 import com.hederahashgraph.api.proto.java.NftTransfer;
 import com.hederahashgraph.api.proto.java.SignedTransaction;
 import com.hederahashgraph.api.proto.java.TokenTransferList;
@@ -18,6 +21,7 @@ import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.util.Utils;
 
 import javax.json.Json;
+import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
@@ -31,6 +35,10 @@ import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 import static com.swirlds.streamloader.util.Utils.readByteBufferSlice;
 import static com.swirlds.streamloader.util.Utils.toHex;
 
+/**
+ * Does all processing on the records stream that can be done in parallel. For example creating of transaction rows or
+ * record file rows.
+ */
 @SuppressWarnings({ "DuplicatedCode", "unused", "deprecation" })
 public class ParallelRecordFileProcessor {
 	public static final int HASH_OBJECT_SIZE_BYTES = 8+4+4+4+48;
@@ -167,31 +175,25 @@ public class ParallelRecordFileProcessor {
 		} catch (InterruptedException | ExecutionException e) {
 			throw new RuntimeException(e);
 		}
-
-//		{"consensus_start_timestamp":"1657630724229567246",
-//				"consensus_end_timestamp":"1657630725127611084",
-//				"data_hash":"66313232",
-//				"prev_hash":"36336364",
-//				"number":66149,
-//				"address_books":[ ],
-//			    "signature_files":[ ],
-//			    "fields":{
-//					"count":"3",
-//					"gas_used":"0",
-//					"hapi_version":"0.26",
-//					"logs_bloom":"null",
-//					"name":"2022-07-12T12_58_44.229567246Z.rcd",
-//					"size":"1788"
-//				} }
 	}
 
+	/**
+	 * Called for each transaction in the record file
+	 *
+	 * @param transactionRecordData raw bytes for transaction record protobuf
+	 * @param transactionData raw bytes for transaction protobuf
+	 * @param transactionRow JSON builder for the transaction row output
+	 * @param balanceChanges list of balance changes to add to
+	 * @param transactionIndex the index of the transaction within the record file
+	 * @return transactions consensus time stamp in epoc nanos
+	 */
 	public static long handleRecordTransaction(ByteBuffer transactionRecordData, ByteBuffer transactionData,
 			JsonObjectBuilder transactionRow, List<BalanceChange> balanceChanges, long transactionIndex) {
 		try {
 			// parse proto buf messages
-			final var transactionRecordMessage =
+			final TransactionRecord transactionRecordMessage =
 					TransactionRecord.parseFrom(transactionRecordData);
-			final var transactionRoot = Transaction.parseFrom(transactionData);
+			final Transaction transactionRoot = Transaction.parseFrom(transactionData);
 			// handle the 3 ways that transaction body has been stored in file over time
 			final TransactionBody transactionMessage;
 			if (transactionRoot.hasBody()) {
@@ -275,37 +277,90 @@ public class ParallelRecordFileProcessor {
 				}
 			}
 
+			// handle contract results
+			final JsonObjectBuilder contractResults = Json.createObjectBuilder();
+			final JsonArrayBuilder contractLogs = Json.createArrayBuilder();
+			if (transactionRecordMessage.hasContractCreateResult() || transactionRecordMessage.hasContractCallResult()) {
+				final ContractFunctionResult contractFunctionResult =
+						transactionRecordMessage.hasContractCreateResult() ? transactionRecordMessage.getContractCreateResult() :
+								transactionRecordMessage.getContractCallResult();
+				contractResults
+						.add("contract_id",contractFunctionResult.getContractID().getContractNum())
+						.add("call_result",toHex(contractFunctionResult.getContractCallResult().toByteArray()))
+						.add("error_message",contractFunctionResult.getErrorMessage())
+						.add("bloom",toHex(contractFunctionResult.getBloom().toByteArray()))
+						.add("gas_used",Long.toString(contractFunctionResult.getGasUsed()))
+						.add("evm_address",toHex(contractFunctionResult.getEvmAddress().toByteArray()))
+						.add("gas_limit",Long.toString(contractFunctionResult.getGas()))
+						.add("amount",Long.toString(contractFunctionResult.getAmount()))
+						.add("function_parameters",toHex(contractFunctionResult.getFunctionParameters().toByteArray()))
+						.add("sender_id",Long.toString(contractFunctionResult.getSenderId().getAccountNum()));
+				final List<ContractID> createdContractIdsList = contractFunctionResult.getCreatedContractIDsList();
+				if (!createdContractIdsList.isEmpty()) {
+					var contractIDsArray = Json.createArrayBuilder();
+					for(var id: createdContractIdsList) {
+						contractIDsArray.add(Long.toString(id.getContractNum()));
+					}
+					contractResults.add("created_contract_ids",contractIDsArray);
+				}
+
+				final List<ContractLoginfo> createdLogsList = contractFunctionResult.getLogInfoList();
+				for (int i = 0; i < createdLogsList.size(); i++) {
+					final ContractLoginfo log = createdLogsList.get(i);
+					JsonArrayBuilder topicArray = Json.createArrayBuilder();
+					for(ByteString topic: log.getTopicList()) {
+						topicArray.add(toHex(topic.toByteArray()));
+					}
+					contractLogs.add(Json.createObjectBuilder()
+							.add("index",Integer.toString(i))
+							.add("contract_id",Long.toString(log.getContractID().getContractNum()))
+							.add("data",toHex(log.getData().toByteArray()))
+							.add("bloom",toHex(log.getBloom().toByteArray()))
+							.add("topics",topicArray.build())
+							.build());
+				}
+			}
+			final JsonObject contractResultsObject = contractResults.build();
+			final JsonArray contractLogsArray = contractLogs.build();
+
+			// build extra fields that do not need to be searchable into fields sub JSON
+			final JsonObjectBuilder fields = Json.createObjectBuilder();
+			fields.add("payer_account_id", accountIdToString(transactionRecordMessage.getTransactionID().getAccountID()))
+				.add("node", accountIdToString(transactionMessage.getNodeAccountID()))
+				.add("valid_start_ns", "")
+				.add("valid_duration_seconds", transactionMessage.getTransactionValidDuration().getSeconds())
+				.add("initial_balance", "")
+				.add("max_fee", transactionMessage.getTransactionFee())
+				.add("charged_tx_fee", transactionRecordMessage.getTransactionFee())
+				.add("memo", transactionMessage.getMemo())
+				.add("transaction_hash", toHex(transactionRecordMessage.getTransactionHash().toByteArray()))
+				.add("transaction_bytes", toHex(transactionMessage.toByteArray()))
+				.add("parent_consensus_timestamp",
+						Long.toString(getEpocNanosAsLong(transactionRecordMessage.getParentConsensusTimestamp())))
+				.add("errata", "")
+				.add("alias", toHex(transactionRecordMessage.getAlias().toByteArray()))
+				.add("ethereum_hash", toHex(transactionRecordMessage.getEthereumHash().toByteArray()));
 			// build ids array from set of ids
 			JsonArrayBuilder ids = Json.createArrayBuilder();
 			idSet.forEach(ids::add);
 			// build JSON row
 			transactionRow
-					.add("entityId",transactionReceiptToEntityNumber(transactionRecordMessage.getReceipt()))
+					.add("entityId", Long.toString(transactionReceiptToEntityNumber(transactionRecordMessage)))
 					.add("type", transactionMessage.getDataCase().toString())
 					.add("index", transactionIndex)
 					.add("result", transactionRecordMessage.getReceipt().getStatus().toString())
 					.add("scheduled",Boolean.toString(transactionMessage.getTransactionID().getScheduled()).toLowerCase())
 					.add("nonce",Integer.toString(transactionMessage.getTransactionID().getNonce()))
 					.add("transaction_id",transactionIdToString(transactionMessage.getTransactionID()))
-					.add("fields",Json.createObjectBuilder()
-							.add("payer_account_id", accountIdToString(transactionRecordMessage.getTransactionID().getAccountID()))
-							.add("node", accountIdToString(transactionMessage.getNodeAccountID()))
-							.add("valid_start_ns", "")
-							.add("valid_duration_seconds", transactionMessage.getTransactionValidDuration().getSeconds())
-							.add("initial_balance", "")
-							.add("max_fee", transactionMessage.getTransactionFee())
-							.add("charged_tx_fee", transactionRecordMessage.getTransactionFee())
-							.add("memo", transactionMessage.getMemo())
-							.add("transaction_hash", toHex(transactionRecordMessage.getTransactionHash().toByteArray()))
-							.add("transaction_bytes", toHex(transactionMessage.toByteArray()))
-							.add("parent_consensus_timestamp", "null")
-							.add("errata", "")
-					)
+					.add("fields",fields.build())
 					.add("consensus_timestamp",Long.toString(consensusTimestampNanosLong))
 					.add("transfers_hbar",transfersHbar.build())
 					.add("transfers_tokens",transfersTokens.build())
 					.add("transfers_nfts",transfersNfts.build())
 					.add("ids",ids.build());
+			// only add non-empty contract results
+			if (contractResultsObject.size() > 0)transactionRow.add("contract_results",contractResultsObject);
+			if (contractLogsArray.size() > 0)transactionRow.add("contract_logs",contractLogsArray);
 			return consensusTimestampNanosLong;
 		} catch (InvalidProtocolBufferException e) {
 			throw new RuntimeException(e);
@@ -322,21 +377,26 @@ public class ParallelRecordFileProcessor {
 				"-" + id.getTransactionValidStart().getNanos();
 	}
 
-	private static String transactionReceiptToEntityNumber(TransactionReceipt receipt) {
+	private static long transactionReceiptToEntityNumber(TransactionRecord transactionRecordMessage) {
+		TransactionReceipt receipt = transactionRecordMessage.getReceipt();
 		if (receipt.hasAccountID()) {
-			return accountIdToString(receipt.getAccountID());
+			return receipt.getAccountID().getAccountNum();
 		} else if (receipt.hasFileID()) {
-			return receipt.getFileID().getShardNum() + "." + receipt.getFileID().getRealmNum() + "." + receipt.getFileID().getFileNum();
+			return receipt.getFileID().getFileNum();
 		} else if (receipt.hasContractID()) {
-			return receipt.getContractID().getShardNum() + "." + receipt.getContractID().getRealmNum() + "." + receipt.getContractID().getContractNum();
+			return receipt.getContractID().getContractNum();
 		} else if (receipt.hasTokenID()) {
-			return receipt.getTokenID().getShardNum() + "." + receipt.getTokenID().getRealmNum() + "." + receipt.getTokenID().getTokenNum();
+			return receipt.getTokenID().getTokenNum();
 		} else if (receipt.hasTopicID()) {
-			return receipt.getTopicID().getShardNum() + "." + receipt.getTopicID().getRealmNum() + "." + receipt.getTopicID().getTopicNum();
+			return receipt.getTopicID().getTopicNum();
 		} else if (receipt.hasScheduleID()) {
-			return receipt.getScheduleID().getShardNum() + "." + receipt.getScheduleID().getRealmNum() + "." + receipt.getScheduleID().getScheduleNum();
+			return receipt.getScheduleID().getScheduleNum();
+		} else if (transactionRecordMessage.hasContractCreateResult()) { // store contract id in entity id for contract create
+			return transactionRecordMessage.getContractCreateResult().getContractID().getContractNum();
+		} else if (transactionRecordMessage.hasContractCallResult()) { // store contract id in entity id for contract call
+			return transactionRecordMessage.getContractCallResult().getContractID().getContractNum();
 		} else {
-			return "-1";
+			return -1;
 		}
 	}
 }

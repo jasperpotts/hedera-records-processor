@@ -1,5 +1,7 @@
 package com.swirlds.streamloader.util;
 
+import com.hederahashgraph.api.proto.java.Timestamp;
+
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -93,6 +95,9 @@ public class Utils {
 	}
 	public static long getEpocNanosAsLong(long epocSeconds, long nanos) {
 		return (epocSeconds * (long)1e+9) + nanos;
+	}
+	public static long getEpocNanosAsLong(Timestamp timestamp) {
+		return timestamp == null ? 0 : (timestamp.getSeconds() * (long)1e+9) + timestamp.getNanos();
 	}
 
 	// assume this is faster than big integer version, has to parse format every

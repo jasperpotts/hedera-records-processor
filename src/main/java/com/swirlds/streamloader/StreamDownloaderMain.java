@@ -4,11 +4,8 @@ import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.PartProcessedRecordFile;
 import com.swirlds.streamloader.data.ProcessedRecordFile;
 import com.swirlds.streamloader.data.RecordFile;
-import com.swirlds.streamloader.input.DiskFileLoader;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GCPFileLoader;
-import com.swirlds.streamloader.output.FileOutputHandler;
-import com.swirlds.streamloader.output.KafkaBatchedOutputHandler;
 import com.swirlds.streamloader.output.KafkaOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.ParallelRecordFileProcessor;
@@ -17,7 +14,6 @@ import com.swirlds.streamloader.util.PrettyStatusPrinter;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import javax.json.Json;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -122,7 +118,7 @@ public class StreamDownloaderMain {
 					final PartProcessedRecordFile partProcessedRecordFile = partProcessedRecordFileQueue.take().get();
 					if (partProcessedRecordFile != null) {
 						lastFile = partProcessedRecordFile.isLastFile();
-						final ProcessedRecordFile processedRecordFile = SequentialRecordFileProcessor.processBalances(
+						final ProcessedRecordFile processedRecordFile = SequentialRecordFileProcessor.processRecordFile(
 								partProcessedRecordFile, balances);
 						processedRecordFileQueue.put(processedRecordFile);
 					}
