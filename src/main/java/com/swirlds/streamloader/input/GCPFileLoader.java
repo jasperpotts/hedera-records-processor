@@ -33,7 +33,6 @@ import static com.swirlds.streamloader.input.BalancesLoader.loadBalances;
 
 public class GCPFileLoader implements FileLoader {
 	// create gcp client
-	private static final Storage STORAGE = StorageOptions.getDefaultInstance().getService();
 	public enum HederaNetwork {
 		DEMO("hedera-demo-streams"),
 		MAINNET("hedera-mainnet-streams"),
@@ -56,6 +55,8 @@ public class GCPFileLoader implements FileLoader {
 	private final String nodeID;
 	private final Date startDate;
 	private final AtomicLong fileCount = new AtomicLong(0);
+	private final Storage storage;
+	private final Storage.BlobSourceOption blobOptions;
 
 	public GCPFileLoader(final HederaNetwork network, final String nodeID,
 			final Date startDate) {
@@ -79,6 +80,8 @@ public class GCPFileLoader implements FileLoader {
 			throw new IllegalStateException(
 					"Could not talk to GCP as can not read project id from GOOGLE_APPLICATION_CREDENTIALS");
 		}
+		storage = StorageOptions.newBuilder().setProjectId(gcpProjectName).build().getService();
+		blobOptions = Storage.BlobSourceOption.userProject(gcpProjectName);
 	}
 
 	@Override
@@ -99,6 +102,7 @@ public class GCPFileLoader implements FileLoader {
 				while(iterableOverBlobs.hasNext()) {
 					// get next blob to download
 					final Blob recordFileBlob = iterableOverBlobs.next();
+					System.out.println("recordFileBlob.getName() = " + recordFileBlob.getName());
 					// only process records files
 					if (recordFileBlob.getName().endsWith(".rcd")) {
 						final Future<RecordFile> finalFuture = future;
@@ -136,7 +140,7 @@ public class GCPFileLoader implements FileLoader {
 	public ObjectLongHashMap<BalanceKey> loadInitialBalances() {
 		// download the initial first balances file.
 		final String initialBalanceFilePath = "accountBalances/balance"+ nodeID +"/"+ INITIAL_BALANCE_FILE_NAME;
-		final Blob blob = STORAGE.get(BlobId.of(network.getBucketName(),initialBalanceFilePath),
+		final Blob blob = storage.get(BlobId.of(network.getBucketName(),initialBalanceFilePath),
 				Storage.BlobGetOption.userProject(gcpProjectName));
 		return loadBalances(downloadBlob(blob),INITIAL_BALANCE_FILE_NAME);
 	}
@@ -145,7 +149,7 @@ public class GCPFileLoader implements FileLoader {
 		// The name for the new bucket
 		final String bucketName = network.getBucketName();
 		// List the file in the bucket
-		final var blobs = STORAGE.list(bucketName,
+		final var blobs = storage.list(bucketName,
 				Storage.BlobListOption.prefix(gcpDirectoryPath),
 				Storage.BlobListOption.currentDirectory(),
 				Storage.BlobListOption.userProject(gcpProjectName),
@@ -154,7 +158,8 @@ public class GCPFileLoader implements FileLoader {
 	}
 
 	private ByteBuffer downloadBlob(Blob blob) {
-		return ByteBuffer.wrap(blob.getContent(Blob.BlobSourceOption.userProject(gcpProjectName)));
+		return ByteBuffer.wrap(storage.readAllBytes(blob.getBlobId(),blobOptions));
+//		return ByteBuffer.wrap(blob.getContent(Blob.BlobSourceOption.userProject(gcpProjectName)));
 	}
 
 	/**

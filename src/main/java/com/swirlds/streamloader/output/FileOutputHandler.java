@@ -10,7 +10,7 @@ import java.nio.file.Path;
  * OutputHandler that write json files for testing
  */
 public class FileOutputHandler implements OutputHandler {
-	private final static int MAX_OBJECTS_PER_FILE = 1000;
+	private final static int MAX_OBJECTS_PER_FILE = 50_000;
 	private final Path dataDir = Path.of("build/OUTPUT_DATA");
 	private int transactionCount = 0;
 	private int recordCount = 0;
@@ -24,7 +24,21 @@ public class FileOutputHandler implements OutputHandler {
 
 	public FileOutputHandler() {
 		try {
-			Files.createDirectories(dataDir);
+			if (Files.exists(dataDir)) {
+				try (var pathStream = Files.list(dataDir)) {
+					pathStream.forEach(path -> {
+						try {
+							Files.delete(path);
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					});
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			} else {
+				Files.createDirectories(dataDir);
+			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

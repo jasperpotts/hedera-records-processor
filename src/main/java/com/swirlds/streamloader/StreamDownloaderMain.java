@@ -6,6 +6,7 @@ import com.swirlds.streamloader.data.ProcessedRecordFile;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GCPFileLoader;
+import com.swirlds.streamloader.output.FileOutputHandler;
 import com.swirlds.streamloader.output.KafkaOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.ParallelRecordFileProcessor;
@@ -42,8 +43,8 @@ public class StreamDownloaderMain {
 				"0.0.3",
 				Date.from(Instant.EPOCH)
 		);
-//		try (OutputHandler outputHandler = new FileOutputHandler()) {
-		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
+		try (OutputHandler outputHandler = new FileOutputHandler()) {
+//		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
 			// start with initial balances
 			final ObjectLongHashMap<BalanceKey> balances = recordFileLoader.loadInitialBalances();
 			outputInitialBalances(balances, outputHandler);

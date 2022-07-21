@@ -33,11 +33,12 @@ buildscript {
 
 application {
 	mainClass.set('com.swirlds.streamloader.StreamDownloaderMain')
+//	mainClass.set('com.swirlds.streamloader.input.AddressBookLoader')
 }
 
 dependencies {
 	implementation 'com.google.protobuf:protobuf-java:3.19.4'
-	implementation 'com.google.cloud:google-cloud-storage:1.91.0'
+	implementation 'com.google.cloud:google-cloud-storage:2.10.0'
 	implementation 'javax.json:javax.json-api:1.1.4'
 	implementation 'org.glassfish:javax.json:1.1.4'
 	implementation 'org.apache.kafka:kafka-clients:3.2.0'
