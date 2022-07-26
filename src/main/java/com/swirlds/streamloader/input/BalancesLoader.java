@@ -34,7 +34,6 @@ public class BalancesLoader {
 	 */
 	public static ObjectLongHashMap<BalanceKey> loadBalances(Path balancesFile) {
 		final String fileName = balancesFile.getFileName().toString();
-		System.out.println("fileName = " + fileName);
 		try {
 			if (fileName.endsWith(".pb.gz")) {
 					return loadBalancesProtobuf(ByteBuffer.wrap(Files.readAllBytes(balancesFile)));
@@ -55,7 +54,6 @@ public class BalancesLoader {
 	 * @return map of account to balance
 	 */
 	public static ObjectLongHashMap<BalanceKey> loadBalances(ByteBuffer balancesFileContents, String fileName) {
-		System.out.println("fileName = " + fileName);
 		if (fileName.endsWith(".pb.gz")) {
 			return loadBalancesProtobuf(balancesFileContents);
 		} else if (fileName.endsWith(".csv")) {
@@ -83,7 +81,8 @@ public class BalancesLoader {
 		}
 		contents.lines().forEach(line -> {
 			if (line.startsWith("TimeStamp:")) {
-				System.out.println("line = " + line);
+				// Skip header line
+//				System.out.println("line = " + line);
 			} else if (line.startsWith("shardNum")) {
 				if (!line.equals("shardNum,realmNum,accountNum,balance")) {
 					throw new IllegalArgumentException("Unknown CSV file encountered with columns: " + line);

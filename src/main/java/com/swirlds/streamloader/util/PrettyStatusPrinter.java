@@ -11,22 +11,17 @@ public class PrettyStatusPrinter {
 	private static final LinkedList<Long> listOfPrevConsensusTimes = new LinkedList<>();
 	private static final LinkedList<Integer> speedsForRollingAverage = new LinkedList<>();
 	private static long lastResetTime = System.nanoTime();
-	private static long transactionsProcessed = 0;
 	private static long recordFilesProcessed = 0;
-	private static long balanceUpdatesProcessed = 0;
 	private static ConcurrentHashMap<String,Integer> latestQueueSizes = new ConcurrentHashMap<>();
 
 
 	/**
 	 * Called once per record file
 	 */
-	public static void printStatusUpdate(long consensusTime, long numOfTransactionsProcessed,
-			long balanceUpdates) {
+	public static void printStatusUpdate(long consensusTime) {
 		recordFilesProcessed ++;
-		transactionsProcessed += numOfTransactionsProcessed;
-		balanceUpdatesProcessed += balanceUpdates;
 		listOfPrevConsensusTimes.add(consensusTime);
-		if (listOfPrevConsensusTimes.size() >= 500) {
+		if (listOfPrevConsensusTimes.size() >= 50) {
 			final long now = System.nanoTime();
 			final long realElapsedNanos = now - lastResetTime;
 			lastResetTime = now;
@@ -36,7 +31,6 @@ public class PrettyStatusPrinter {
 			listOfPrevConsensusTimes.clear();
 
 			final double elapsedSeconds = (double)realElapsedNanos / 1_000_000_000.0;
-			double transactionsProcessedASecond = ((double) numOfTransactionsProcessed / elapsedSeconds);
 			double recordFilesProcessedASecond = ((double) 100 / elapsedSeconds);
 
 			@SuppressWarnings("OptionalGetWithoutIsPresent") final int averageSpeed = speedsForRollingAverage.isEmpty() ?
@@ -45,11 +39,10 @@ public class PrettyStatusPrinter {
 			final Duration consensusTimeTillNow = Duration.between(getInstantFromNanoEpicLong(consensusElapsedNanos), Instant.now());
 			final Duration eta = consensusTimeTillNow.dividedBy(averageSpeed);
 
-			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime, ETA %4d:%02dh -- Transactions %,10d @ %,4.1f/sec -- Files %,7d @ %,4.1f/sec -- BalanceUpdates %,7d %s",
+			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime, ETA %4d:%02dh  -- Files %,7d @ %,4.1f/sec -- %s",
 					consensusInstant.toString(), averageSpeed,
 					eta.toHours(), eta.toMinutesPart(),
-					transactionsProcessed, transactionsProcessedASecond,
-					recordFilesProcessed, recordFilesProcessedASecond, balanceUpdatesProcessed,
+					recordFilesProcessed, recordFilesProcessedASecond,
 					latestQueueSizes.reduceEntries(1,
 							entry -> entry.getKey() + "=" + entry.getValue(), (str1, str2) -> str1 + ", " + str2));
 		}

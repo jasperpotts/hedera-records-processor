@@ -45,6 +45,7 @@ dependencies {
 	implementation 'org.jetbrains:annotations:20.1.0'
 	implementation 'org.slf4j:slf4j-jdk14:1.7.36'
 	implementation 'org.eclipse.collections:eclipse-collections:11.1.0'
+	implementation 'org.junit.jupiter:junit-jupiter:5.8.1'
 }
 
 sourceSets {
@@ -69,4 +70,8 @@ tasks.withType(Test) {
 }
 tasks.withType(JavaExec) {
 	jvmArgs += '--enable-preview'
+}
+
+test {
+	useJUnitPlatform()
 }

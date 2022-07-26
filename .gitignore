@@ -24,6 +24,7 @@ hs_err_pid*
 
 .gradle/
 .DS_Store
-test-data/
+test-data/perf-net-10K-tps
+test-data/recordstreams/performance
 build/
 out/

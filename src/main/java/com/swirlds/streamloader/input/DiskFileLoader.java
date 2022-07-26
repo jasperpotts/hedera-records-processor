@@ -1,19 +1,12 @@
 package com.swirlds.streamloader.input;
 
 import com.swirlds.streamloader.data.BalanceKey;
-import com.swirlds.streamloader.data.RecordFile;
-import com.swirlds.streamloader.util.PreCompletedFuture;
-import com.swirlds.streamloader.util.Utils;
+import com.swirlds.streamloader.util.PipelineConsumer;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_NAME;
@@ -21,39 +14,24 @@ import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE
 /**
  * Scan a directory loading all record files
  */
+@SuppressWarnings("unused")
 public class DiskFileLoader implements FileLoader {
 	private final Path recordFileDirectory;
-	private AtomicLong fileCount = new AtomicLong(0);
-	private AtomicReference<byte[]> prevFileHash = new AtomicReference<>(new byte[48]);
 
 	public DiskFileLoader(final Path recordFileDirectory) {
 		this.recordFileDirectory = recordFileDirectory;
 	}
 
 	@Override
-	public void startLoadingRecordFiles(final ArrayBlockingQueue<Future<RecordFile>> recordFileQueue) {
+	public void startLoadingRecordFileUrls(final PipelineConsumer<URL> consumer) {
 		new Thread(() -> {
 			try {
 				Path[] recordFilePaths = findRecordStreams(recordFileDirectory).toArray(Path[]::new);
 				System.out.println("Processing " + recordFilePaths.length+" files...");
 				for (int i = 0; i < recordFilePaths.length; i++) {
-					final Path file = recordFilePaths[i];
-					try {
-						final ByteBuffer dataBuf = Utils.readFileFully(file);
-						final byte[] fileHash = Utils.hashShar384(dataBuf);
-						final RecordFile recordFile = new RecordFile(
-								i == recordFilePaths.length -1,
-								dataBuf,
-								fileCount.incrementAndGet(),
-								Files.size(file),
-								fileHash,
-								new PreCompletedFuture<>(prevFileHash.getAndSet(fileHash)),
-								file.getFileName().toString()
-						);
-						recordFileQueue.put(new PreCompletedFuture<>(recordFile));
-					} catch (IOException | InterruptedException e) {
-						throw new RuntimeException(e);
-					}
+					final Path recordFilePath = recordFilePaths[i];
+					final boolean isLast = i == recordFilePaths.length-1;
+					consumer.accept(recordFilePath.toUri().toURL(), isLast);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

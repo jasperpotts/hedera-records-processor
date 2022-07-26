@@ -1,10 +1,17 @@
 package com.swirlds.streamloader.output;
 
 
-import javax.json.JsonObject;
+import com.swirlds.streamloader.data.JsonRow;
+import com.swirlds.streamloader.util.PipelineConsumer;
 
-public interface OutputHandler extends AutoCloseable {
-	public void outputTransaction(JsonObject transactionJson);
-	public void outputRecordFile(JsonObject recordFileJson);
-	public void outputAccountBalance(JsonObject balanceJson);
+import java.util.List;
+import java.util.function.Consumer;
+
+public interface OutputHandler extends AutoCloseable, PipelineConsumer<List<JsonRow>> {
+	@Override
+	default void accept(final List<JsonRow> data, final boolean isLast) {
+		accept(data);
+	}
+
+	void accept(final List<JsonRow> data);
 }

@@ -4,6 +4,7 @@ import com.hederahashgraph.api.proto.java.Timestamp;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,12 @@ public class Utils {
 	private static final byte[] HEX_ARRAY = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
 	private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
 	private static final BigInteger SECONDS_TO_NANOSECONDS = BigInteger.valueOf(1_000_000_000L);
+
+	public static void failWithError(Throwable e) {
+		e.printStackTrace();
+		System.err.flush();
+		System.exit(1);
+	}
 
 	public static String toHex(byte[] bytes) {
 		byte[] hexChars = new byte[bytes.length * 2];
@@ -71,13 +78,15 @@ public class Utils {
 
 	public static Instant getInstantFromFileName(String fileName) {
 		final String fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('Z')+1);
-		System.out.println("fileNameWithoutExt = " + fileNameWithoutExt);
 		return Instant.from(formatter.parse(fileNameWithoutExt));
 	}
 
 	public static String getEpocNanosFromFileName(String fileName) {
 		final Instant instant = getInstantFromFileName(fileName);
 		return getEpocNanos(instant.getEpochSecond(), instant.getNano());
+	}
+	public static long getEpocNanosFromUrl(URL url) {
+		return Long.parseLong(getEpocNanosFromFileName(Path.of(url.getFile()).getFileName().toString()));
 	}
 
 	public static String getEpocNanos2(long epocSeconds, long nanos) {
