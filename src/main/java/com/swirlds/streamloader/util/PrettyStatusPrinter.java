@@ -3,7 +3,6 @@ package com.swirlds.streamloader.util;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedList;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.swirlds.streamloader.util.Utils.getInstantFromNanoEpicLong;
 
@@ -12,7 +11,6 @@ public class PrettyStatusPrinter {
 	private static final LinkedList<Integer> speedsForRollingAverage = new LinkedList<>();
 	private static long lastResetTime = System.nanoTime();
 	private static long recordFilesProcessed = 0;
-	private static ConcurrentHashMap<String,Integer> latestQueueSizes = new ConcurrentHashMap<>();
 
 
 	/**
@@ -39,16 +37,10 @@ public class PrettyStatusPrinter {
 			final Duration consensusTimeTillNow = Duration.between(getInstantFromNanoEpicLong(consensusElapsedNanos), Instant.now());
 			final Duration eta = consensusTimeTillNow.dividedBy(averageSpeed);
 
-			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime, ETA %4d:%02dh  -- Files %,7d @ %,4.1f/sec -- %s",
+			System.out.printf("\rProcessing Time = %30s @ %,7dx realtime, ETA %4d:%02dh  -- Files %,7d @ %,4.1f/sec",
 					consensusInstant.toString(), averageSpeed,
 					eta.toHours(), eta.toMinutesPart(),
-					recordFilesProcessed, recordFilesProcessedASecond,
-					latestQueueSizes.reduceEntries(1,
-							entry -> entry.getKey() + "=" + entry.getValue(), (str1, str2) -> str1 + ", " + str2));
+					recordFilesProcessed, recordFilesProcessedASecond);
 		}
-	}
-
-	public static void updateQueueSize(String name, int size) {
-		latestQueueSizes.put(name,size);
 	}
 }

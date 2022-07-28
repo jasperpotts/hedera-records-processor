@@ -3,7 +3,6 @@ package com.swirlds.streamloader;
 import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GoogleStorageFileLoader;
-import com.swirlds.streamloader.output.AvroFileOutputHandler;
 import com.swirlds.streamloader.output.AvroGoogleBucketFileOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.BalanceProcessingBlock;
@@ -16,10 +15,17 @@ import com.swirlds.streamloader.util.Utils;
 import org.apache.avro.generic.GenericRecord;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
+import java.util.Map;
+
 public class StreamDownloaderMain {
 	public static final String TRANSACTIONS_TOPIC = "transaction_record_new";
 	public static final String RECORDS_TOPIC = "record_file_new";
 	public static final String BALANCES_TOPIC = "balance";
+
+	public static final Map<String, Long> MAX_NUM_ROW_PER_FILE_MAP = Map.of(
+			TRANSACTIONS_TOPIC, 500_000L,
+			RECORDS_TOPIC, 30 * 60 * 24 * 30 * 3L, // 3mths
+			BALANCES_TOPIC, 25_000_000L);
 
 	static {
 		Thread.setDefaultUncaughtExceptionHandler((t, e) -> Utils.failWithError(e));

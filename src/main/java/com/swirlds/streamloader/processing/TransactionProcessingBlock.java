@@ -30,6 +30,7 @@ import javax.json.JsonObjectBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 import static com.swirlds.streamloader.util.Utils.toHex;
@@ -59,6 +60,7 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			     {"name": "ids", "type": {"type" : "array", "items" : "long"}}
 			 ]
 			}""");
+	private final AtomicInteger biggestJsonSize = new AtomicInteger(0);
 	public TransactionProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("transaction-processor", pipelineLifecycle);
 	}
@@ -204,22 +206,47 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.set("index", t)
 					.set("transaction_id", transactionIdToString(transactionMessage.getTransactionID()))
 					.set("result", transactionRecord.getReceipt().getStatus().toString())
-					.set("fields_1", fields.build().toString())
-					.set("transfers_tokens_1", transfersTokens.build().toString())
-					.set("transfers_hbar_1", transfersHbar.build().toString())
-					.set("transfers_nft_1", transfersNfts.build().toString())
+					.set("fields_1", jsonToString(fields))
+					.set("transfers_tokens_1", jsonToString(transfersTokens))
+					.set("transfers_hbar_1", jsonToString(transfersHbar))
+					.set("transfers_nft_1", jsonToString(transfersNfts))
 					.set("contract_state_change_1", "{}") // TODO find data source
 					.set("nonce", transactionMessage.getTransactionID().getNonce())
 					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
 					.set("assessed_custom_fees_1","{}") // TODO find data source
 					.set("ids", idSet);
 			// only add non-empty contract results
-			if (contractResultsObject.size() > 0) transactionRow.set("contract_results_1", contractResultsObject.toString());
-			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs_1", contractLogsArray.toString());
+			if (contractResultsObject.size() > 0) transactionRow.set("contract_results_1", jsonToString(contractResultsObject));
+			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs_1", jsonToString(contractLogsArray));
 			// create new row
 			records.add(transactionRow.build());
 		}
 		return records;
+	}
+
+	private String jsonToString(JsonObjectBuilder builder) {
+		return jsonToString(builder.build().toString());
+	}
+	private String jsonToString(JsonArrayBuilder builder) {
+		return jsonToString(builder.build().toString());
+	}
+	private String jsonToString(JsonArray builder) {
+		return jsonToString(builder.toString());
+	}
+	private String jsonToString(JsonObject builder) {
+		return jsonToString(builder.toString());
+	}
+	private String jsonToString(final String str) {
+		final int length = str.length();
+		biggestJsonSize.updateAndGet(old -> {
+			if (length > old) {
+				System.out.println("New max json length = " + length);
+				return length;
+			} else {
+				return old;
+			}
+		});
+		return str;
 	}
 
 	private static String accountIdToString(AccountID id) {

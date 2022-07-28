@@ -13,11 +13,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.swirlds.streamloader.StreamDownloaderMain.MAX_NUM_ROW_PER_FILE_MAP;
+
 /**
  * OutputHandler that write json files for testing
  */
 public class AvroGoogleBucketFileOutputHandler implements OutputHandler<GenericRecord> {
-	private final static int MAX_FIELDS_PER_FILE = 1_000_000;
+	private final static long DEFAULT_MAX_ROWS_PER_FILE = 100_000;
 	private final Map<String, FileSet> fileSets = new HashMap<>();
 	private final String bucketName;
 
@@ -51,7 +53,7 @@ public class AvroGoogleBucketFileOutputHandler implements OutputHandler<GenericR
 	}
 
 	private static class FileSet {
-		private final int maxRecords;
+		private final long maxRecords;
 		private final Schema schema;
 		private final String bucketName;
 		private DataFileWriter<GenericRecord> writer;
@@ -62,7 +64,7 @@ public class AvroGoogleBucketFileOutputHandler implements OutputHandler<GenericR
 		private FileSet(Schema schema, String bucketName) {
 			this.schema = schema;
 			this.bucketName = bucketName;
-			maxRecords = MAX_FIELDS_PER_FILE /schema.getFields().size();
+			maxRecords = MAX_NUM_ROW_PER_FILE_MAP.getOrDefault(schema.getName(), DEFAULT_MAX_ROWS_PER_FILE);
 			try {
 				openNewFile();
 			} catch (IOException e) {
