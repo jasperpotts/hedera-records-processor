@@ -46,6 +46,13 @@ dependencies {
 	implementation 'org.slf4j:slf4j-jdk14:1.7.36'
 	implementation 'org.eclipse.collections:eclipse-collections:11.1.0'
 	implementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+//
+//	implementation 'org.apache.pinot:pinot-segment-writer:0.10.0'
+//	implementation 'org.apache.pinot:pinot-segment-writer-file-based:0.10.0'
+//	implementation 'org.apache.pinot:pinot-segment-uploader:0.10.0'
+//	implementation 'org.apache.pinot:pinot-segment-uploader-default:0.10.0'
+
+	implementation 'org.apache.avro:avro:1.11.0'
 }
 
 sourceSets {

@@ -1,46 +1,63 @@
 package com.swirlds.streamloader.processing;
 
 import com.hederahashgraph.api.proto.java.TransactionRecord;
-import com.swirlds.streamloader.data.JsonRow;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.data.RecordFileBlock;
 import com.swirlds.streamloader.util.PipelineBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
-import com.swirlds.streamloader.util.Utils;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 
 import javax.json.Json;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static com.swirlds.streamloader.StreamDownloaderMain.RECORDS_TOPIC;
-
-public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<JsonRow>> {
+public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<GenericRecord>> {
+	private static final Schema RECORD_FILE_AVRO_SCHEMA = new Schema.Parser().parse("""
+			{"namespace": "com.swirlds",
+			 "type": "record",
+			 "name": "record_file_new",
+			 "fields": [
+			     {"name": "consensus_start_timestamp", "type": "long"},
+			     {"name": "consensus_end_timestamp", "type": "long"},
+			     {"name": "data_hash", "type": "bytes", "default" : ""},
+			     {"name": "prev_hash", "type": "bytes", "default" : ""},
+			     {"name": "number", "type": "int"},
+			     {"name": "address_books", "type": "string"},
+			     {"name": "signature_files_1", "type": "string"},
+			     {"name": "fields_1", "type": "string"}
+			 ]
+			}""");
 	public RecordFileProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("record-file-processor", pipelineLifecycle);
 	}
 
 	@Override
-	public List<JsonRow> processDataItem(final RecordFileBlock recordFileBlock) {
+	public List<GenericRecord> processDataItem(final RecordFileBlock recordFileBlock) {
 		final RecordFile recordFile = recordFileBlock.recordFile();
-		return Collections.singletonList(new JsonRow(RECORDS_TOPIC,Json.createObjectBuilder()
-				.add("consensus_start_timestamp", Long.toString(recordFile.startConsensusTime()))
-				.add("consensus_end_timestamp", Long.toString(recordFile.endConsensusTime()))
-				.add("data_hash", Utils.toHex(recordFile.hashOfThisFile()))
-				.add("prev_hash", Utils.toHex(recordFile.hashOfPrevFile().orElseGet(() -> new byte[0])))
-				.add("number", Long.toString(recordFileBlock.blockNumber()))
-				.add("address_books", Json.createArrayBuilder().build())
-				.add("signature_files", Json.createArrayBuilder().build())
-				.add("signature_files", Json.createArrayBuilder().build())
-				.add("fields", Json.createObjectBuilder()
+		final GenericRecordBuilder recordBuilder = new GenericRecordBuilder(RECORD_FILE_AVRO_SCHEMA)
+				.set("consensus_start_timestamp", recordFile.startConsensusTime())
+				.set("consensus_end_timestamp", recordFile.endConsensusTime())
+				.set("data_hash", ByteBuffer.wrap(recordFile.hashOfThisFile()))
+				.set("number", recordFileBlock.blockNumber())
+				.set("address_books", "[]")
+				.set("signature_files_1", "[]")
+				.set("fields_1", Json.createObjectBuilder()
 						.add("count", Long.toString(recordFile.transactions().length))
 						.add("gas_used", Long.toString(Arrays.stream(recordFile.transactionRecords()).mapToLong(this::getTransactionGas).sum()))
 						.add("hapi_version", recordFile.hapiVersion())
 						.add("logs_bloom", "null")
 						.add("name", recordFile.fileName())
 						.add("size", Long.toString(recordFile.sizeBytes()))
-						.build())
-				.build()));
+						.build().toString());
+
+		if(recordFile.hashOfPrevFile().isPresent()) {
+			recordBuilder.set("prev_hash", ByteBuffer.wrap(recordFile.hashOfPrevFile().get()));
+		}
+		return Collections.singletonList(recordBuilder.build());
 	}
 
 	private long getTransactionGas(TransactionRecord transactionRecord) {

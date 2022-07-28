@@ -8,7 +8,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.List;
 import java.util.Properties;
 
-public class KafkaOutputHandler implements OutputHandler {
+public class KafkaOutputHandler implements OutputHandler<JsonRow> {
 	private final Producer<String, String> producer;
 
 	public KafkaOutputHandler(String serverIP) {

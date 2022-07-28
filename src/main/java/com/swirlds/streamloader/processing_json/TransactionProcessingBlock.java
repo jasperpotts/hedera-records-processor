@@ -1,4 +1,4 @@
-package com.swirlds.streamloader.processing;
+package com.swirlds.streamloader.processing_json;
 
 import com.google.protobuf.ByteString;
 import com.hederahashgraph.api.proto.java.AccountAmount;
@@ -14,13 +14,11 @@ import com.hederahashgraph.api.proto.java.TransactionBody;
 import com.hederahashgraph.api.proto.java.TransactionID;
 import com.hederahashgraph.api.proto.java.TransactionReceipt;
 import com.hederahashgraph.api.proto.java.TransactionRecord;
+import com.swirlds.streamloader.data.JsonRow;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.data.RecordFileBlock;
 import com.swirlds.streamloader.util.PipelineBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -31,44 +29,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import static com.swirlds.streamloader.StreamDownloaderMain.TRANSACTIONS_TOPIC;
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 import static com.swirlds.streamloader.util.Utils.toHex;
 
-public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<GenericRecord>> {
-	private static final Schema TRANSACTION_AVRO_SCHEMA = new Schema.Parser().parse("""
-			{"namespace": "com.swirlds",
-			 "type": "record",
-			 "name": "transaction_record_new",
-			 "fields": [
-			     {"name": "consensus_timestamp", "type": "long"},
-			     {"name": "entityId", "type": "long"},
-			     {"name": "type", "type": "string"},
-			     {"name": "index", "type": "long"},
-			     {"name": "transaction_id", "type": "string"},
-			     {"name": "result", "type": "string"},
-			     {"name": "fields_1", "type": "string"},
-			     {"name": "transfers_tokens_1", "type": "string"},
-			     {"name": "transfers_hbar_1", "type": "string"},
-			     {"name": "transfers_nft_1", "type": "string"},
-			     {"name": "contract_logs_1", "type": "string", "default" : ""},
-			     {"name": "contract_results_1", "type": "string", "default" : ""},
-			     {"name": "contract_state_change_1", "type": "string"},
-			     {"name": "nonce", "type": "int"},
-			     {"name": "scheduled", "type": "boolean"},
-			     {"name": "assessed_custom_fees_1", "type": "string"},
-			     {"name": "ids", "type": {"type" : "array", "items" : "long"}}
-			 ]
-			}""");
+public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<JsonRow>> {
 	public TransactionProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("transaction-processor", pipelineLifecycle);
 	}
 
 	@Override
-	public List<GenericRecord> processDataItem(final RecordFileBlock recordFileBlock) throws Exception {
+	public List<JsonRow> processDataItem(final RecordFileBlock recordFileBlock) throws Exception {
 		final RecordFile recordFile = recordFileBlock.recordFile();
 		final Transaction[] transactions = recordFile.transactions();
 		final TransactionRecord[] transactionRecords = recordFile.transactionRecords();
-		final List<GenericRecord> records = new ArrayList<>(transactions.length);
+		final List<JsonRow> jsonRows = new ArrayList<>(transactions.length);
 		for (int t = 0; t < transactions.length; t++) {
 			final TransactionRecord transactionRecord = transactionRecords[t];
 			final Transaction transaction = transactions[t];
@@ -196,30 +171,32 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.add("errata", "")
 					.add("alias", toHex(transactionRecord.getAlias().toByteArray()))
 					.add("ethereum_hash", toHex(transactionRecord.getEthereumHash().toByteArray()));
+			// build ids array from set of ids
+			JsonArrayBuilder ids = Json.createArrayBuilder();
+			idSet.forEach(ids::add);
 			// build JSON row
-			final var transactionRow = new GenericRecordBuilder(TRANSACTION_AVRO_SCHEMA)
-					.set("consensus_timestamp", consensusTimestampNanosLong)
-					.set("entityId", transactionReceiptToEntityNumber(transactionRecord))
-					.set("type", transactionMessage.getDataCase().toString())
-					.set("index", t)
-					.set("transaction_id", transactionIdToString(transactionMessage.getTransactionID()))
-					.set("result", transactionRecord.getReceipt().getStatus().toString())
-					.set("fields_1", fields.build().toString())
-					.set("transfers_tokens_1", transfersTokens.build().toString())
-					.set("transfers_hbar_1", transfersHbar.build().toString())
-					.set("transfers_nft_1", transfersNfts.build().toString())
-					.set("contract_state_change_1", "{}") // TODO find data source
-					.set("nonce", transactionMessage.getTransactionID().getNonce())
-					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
-					.set("assessed_custom_fees_1","{}") // TODO find data source
-					.set("ids", idSet);
+			final var transactionRow = Json.createObjectBuilder()
+					.add("entityId", Long.toString(transactionReceiptToEntityNumber(transactionRecord)))
+					.add("type", transactionMessage.getDataCase().toString())
+					.add("index", t)
+					.add("result", transactionRecord.getReceipt().getStatus().toString())
+					.add("scheduled",
+							Boolean.toString(transactionMessage.getTransactionID().getScheduled()).toLowerCase())
+					.add("nonce", Integer.toString(transactionMessage.getTransactionID().getNonce()))
+					.add("transaction_id", transactionIdToString(transactionMessage.getTransactionID()))
+					.add("fields", fields.build())
+					.add("consensus_timestamp", Long.toString(consensusTimestampNanosLong))
+					.add("transfers_hbar", transfersHbar.build())
+					.add("transfers_tokens", transfersTokens.build())
+					.add("transfers_nfts", transfersNfts.build())
+					.add("ids", ids.build());
 			// only add non-empty contract results
-			if (contractResultsObject.size() > 0) transactionRow.set("contract_results_1", contractResultsObject.toString());
-			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs_1", contractLogsArray.toString());
+			if (contractResultsObject.size() > 0) transactionRow.add("contract_results", contractResultsObject);
+			if (contractLogsArray.size() > 0) transactionRow.add("contract_logs", contractLogsArray);
 			// create new row
-			records.add(transactionRow.build());
+			jsonRows.add(new JsonRow(TRANSACTIONS_TOPIC, transactionRow.build()));
 		}
-		return records;
+		return jsonRows;
 	}
 
 	private static String accountIdToString(AccountID id) {

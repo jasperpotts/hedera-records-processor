@@ -14,12 +14,12 @@ import java.util.Map;
 /**
  * OutputHandler that write json files for testing
  */
-public class FileOutputHandler implements OutputHandler {
+public class JsonFileOutputHandler implements OutputHandler<JsonRow> {
 	private final static int MAX_OBJECTS_PER_FILE = 10_000;
 	private final Path dataDir = Path.of("build/OUTPUT_DATA");
 	public final Map<String, FileSet> fileSets = new HashMap<>();
 
-	public FileOutputHandler() {
+	public JsonFileOutputHandler() {
 		try {
 			if (Files.exists(dataDir)) {
 				try (var pathStream = Files.list(dataDir)) {

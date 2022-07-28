@@ -2,6 +2,7 @@ package com.swirlds.streamloader.util;
 
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 
@@ -46,6 +47,13 @@ public class GoogleStorageHelper {
 		BlobId blobId = BlobId.fromGsUtilUri(url.toString());
 		return ByteBuffer.wrap(storage.readAllBytes(blobId,blobOptions));
 //		return ByteBuffer.wrap(blob.getContent(Blob.BlobSourceOption.userProject(gcpProjectName)));
+	}
+
+	public static void uploadBlob(String bucketName, String path, byte[] data) {
+		System.out.println("\nUploading file to google : gs://"+ bucketName+"/"+path);
+		final BlobId blobId = BlobId.of(bucketName, path);
+		final BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+		storage.create(blobInfo, data);
 	}
 
 	public static Iterator<Blob> listDirectory(final String bucketName, String gcpDirectoryPath) {

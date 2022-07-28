@@ -1,4 +1,4 @@
-package com.swirlds.streamloader.processing;
+package com.swirlds.streamloader.processing_json;
 
 import com.hederahashgraph.api.proto.java.AccountAmount;
 import com.hederahashgraph.api.proto.java.NftTransfer;
@@ -7,35 +7,24 @@ import com.hederahashgraph.api.proto.java.TransactionRecord;
 import com.swirlds.streamloader.data.BalanceChange;
 import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.data.BalanceValue;
+import com.swirlds.streamloader.data.JsonRow;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.data.RecordFileBlock;
 import com.swirlds.streamloader.util.PipelineBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.GenericRecordBuilder;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
+import javax.json.Json;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_TIMESTAMP_LONG;
+import static com.swirlds.streamloader.StreamDownloaderMain.BALANCES_TOPIC;
+import static com.swirlds.streamloader.input.BalancesLoader.INITIAL_BALANCE_FILE_TIMESTAMP;
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 
-public class BalanceProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock, List<GenericRecord>> {
-	private static final Schema BALANCES_AVRO_SCHEMA = new Schema.Parser().parse("""
-			{"namespace": "com.swirlds",
-			 "type": "record",
-			 "name": "balance",
-			 "fields": [
-			     {"name": "consensus_timestamp", "type": "long"},
-			     {"name": "account_id", "type": "long"},
-			     {"name": "token_id", "type": "long"},
-			     {"name": "balance", "type": "long"}
-			 ]
-			}""");
+public class BalanceProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock, List<JsonRow>> {
 	private final ObjectLongHashMap<BalanceKey> balances;
 	private boolean initialBalancesHaveBeenProcessed = false;
 	public BalanceProcessingBlock(ObjectLongHashMap<BalanceKey> initialBalances, PipelineLifecycle pipelineLifecycle) {
@@ -43,9 +32,8 @@ public class BalanceProcessingBlock extends PipelineBlock.Sequential<RecordFileB
 		balances = initialBalances;
 	}
 
-
 	@Override
-	public List<GenericRecord> processDataItem(final RecordFileBlock recordFileBlock) {
+	public List<JsonRow> processDataItem(final RecordFileBlock recordFileBlock) {
 		// First we need to process all transaction records and extract the balance changes
 		final RecordFile recordFile = recordFileBlock.recordFile();
 		final TransactionRecord[] transactionRecords = recordFile.transactionRecords();
@@ -92,16 +80,16 @@ public class BalanceProcessingBlock extends PipelineBlock.Sequential<RecordFileB
 				}
 			}
 		}
-		final List<GenericRecord> records = new ArrayList<>();
+		final List<JsonRow> jsonRows = new ArrayList<>();
 		// now check if initial balances have been loaded
 		if (!initialBalancesHaveBeenProcessed) {
 			balances.forEachKeyValue(
-					(balanceKey,tinyBarBalance) -> records.add(new GenericRecordBuilder(BALANCES_AVRO_SCHEMA)
-						.set("consensus_timestamp",INITIAL_BALANCE_FILE_TIMESTAMP_LONG)
-						.set("account_id",balanceKey.accountNum())
-						.set("token_id",balanceKey.tokenType())
-						.set("balance",tinyBarBalance)
-						.build()));
+					(balanceKey,tinyBarBalance) -> jsonRows.add(new JsonRow(BALANCES_TOPIC, Json.createObjectBuilder()
+						.add("consensus_timestamp",INITIAL_BALANCE_FILE_TIMESTAMP)
+						.add("account_id",Long.toString(balanceKey.accountNum()))
+						.add("token_id",Long.toString(balanceKey.tokenType()))
+						.add("balance",Long.toString(tinyBarBalance))
+						.build())));
 			initialBalancesHaveBeenProcessed = true;
 		}
 		// map for all balance changes from this file, we only need the final balance after all transactions in the file
@@ -117,13 +105,13 @@ public class BalanceProcessingBlock extends PipelineBlock.Sequential<RecordFileB
 		}
 		// create json or balance changes
 		for (Map.Entry<BalanceKey, BalanceValue> balanceChange: balancesAfterAllTransactionsInFile.entrySet()) {
-			records.add(new GenericRecordBuilder(BALANCES_AVRO_SCHEMA)
-					.set("consensus_timestamp",balanceChange.getValue().consensusTimeStamp())
-					.set("account_id",balanceChange.getKey().accountNum())
-					.set("token_id",balanceChange.getKey().tokenType())
-					.set("balance",balanceChange.getValue().amount())
-					.build());
+			jsonRows.add(new JsonRow(BALANCES_TOPIC , Json.createObjectBuilder()
+					.add("consensus_timestamp",balanceChange.getValue().consensusTimeStamp())
+					.add("account_id",Long.toString(balanceChange.getKey().accountNum()))
+					.add("token_id",Long.toString(balanceChange.getKey().tokenType()))
+					.add("balance",Long.toString(balanceChange.getValue().amount()))
+					.build()));
 		}
-		return records;
+		return jsonRows;
 	}
 }

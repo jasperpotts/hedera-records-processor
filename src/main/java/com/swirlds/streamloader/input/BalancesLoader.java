@@ -25,6 +25,7 @@ import static com.swirlds.streamloader.util.Utils.getEpocNanosFromFileName;
 public class BalancesLoader {
 	public static final String INITIAL_BALANCE_FILE_NAME = "2019-09-13T22_00_00.000081Z_Balances.csv";
 	public static final String INITIAL_BALANCE_FILE_TIMESTAMP = getEpocNanosFromFileName(INITIAL_BALANCE_FILE_NAME);
+	public static final long INITIAL_BALANCE_FILE_TIMESTAMP_LONG = Long.parseLong(INITIAL_BALANCE_FILE_TIMESTAMP);
 
 	/**
 	 * Loads a CSV or Protobuf formatted balances file

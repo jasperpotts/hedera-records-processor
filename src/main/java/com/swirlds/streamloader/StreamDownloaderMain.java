@@ -3,8 +3,8 @@ package com.swirlds.streamloader;
 import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GoogleStorageFileLoader;
-import com.swirlds.streamloader.output.FileOutputHandler;
-import com.swirlds.streamloader.output.KafkaOutputHandler;
+import com.swirlds.streamloader.output.AvroFileOutputHandler;
+import com.swirlds.streamloader.output.AvroGoogleBucketFileOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.BalanceProcessingBlock;
 import com.swirlds.streamloader.processing.BlockProcessingBlock;
@@ -13,6 +13,7 @@ import com.swirlds.streamloader.processing.RecordFileProcessingBlock;
 import com.swirlds.streamloader.processing.TransactionProcessingBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
 import com.swirlds.streamloader.util.Utils;
+import org.apache.avro.generic.GenericRecord;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 public class StreamDownloaderMain {
@@ -29,13 +30,14 @@ public class StreamDownloaderMain {
 				GoogleStorageFileLoader.HederaNetwork.MAINNET,
 				"0.0.3"
 		);
-//		try (OutputHandler outputHandler = new FileOutputHandler()) {
-		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
+//		try (OutputHandler<GenericRecord> outputHandler = new AvroFileOutputHandler()) {
+		try (OutputHandler<GenericRecord> outputHandler = new AvroGoogleBucketFileOutputHandler("pinot-ingestion")) {
+//		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
 			processRecords(recordFileLoader, outputHandler);
 		}
 	}
 
-	public static void processRecords(FileLoader recordFileLoader, OutputHandler outputHandler) {
+	public static void processRecords(FileLoader recordFileLoader, OutputHandler<GenericRecord> outputHandler) {
 		// start with loading initial balances
 		final ObjectLongHashMap<BalanceKey> balances = recordFileLoader.loadInitialBalances();
 		// build processing pipeline
