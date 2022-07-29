@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 import static com.swirlds.streamloader.util.Utils.toHex;
 
+@SuppressWarnings("deprecation")
 public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<GenericRecord>> {
 	private static final Schema TRANSACTION_AVRO_SCHEMA = new Schema.Parser().parse("""
 			{"namespace": "com.swirlds",
@@ -178,6 +179,22 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 							.build());
 				}
 			}
+			// handle assessedCustomFees
+			// type should be AssessedCustomFee, but compiler is not allowing it.
+			final JsonArrayBuilder assessedCustomFees = Json.createArrayBuilder();
+			for (var assessedCustomFee : transactionRecord.getAssessedCustomFeesList()) {
+				final JsonArrayBuilder payerAccountIds = Json.createArrayBuilder();
+				for (var id: assessedCustomFee.getEffectivePayerAccountIdList()) {
+					payerAccountIds.add(id.getShardNum()+"."+id.getRealmNum()+"."+id.getAccountNum());
+				}
+				assessedCustomFees.add(Json.createObjectBuilder()
+						.add("amount", assessedCustomFee.getAmount())
+						.add("collector_account_id", assessedCustomFee.getFeeCollectorAccountId().toString())
+						.add("effective_payer_account_ids", payerAccountIds.build())
+						.add("payer_account_id", accountIdToString(transactionRecord.getTransactionID().getAccountID()))
+						.add("token_id", assessedCustomFee.getTokenId().toString())
+						.build());
+			}
 			final JsonObject contractResultsObject = contractResults.build();
 			final JsonArray contractLogsArray = contractLogs.build();
 
@@ -210,10 +227,10 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.set("transfers_tokens_1", jsonToString(transfersTokens))
 					.set("transfers_hbar_1", jsonToString(transfersHbar))
 					.set("transfers_nft_1", jsonToString(transfersNfts))
-					.set("contract_state_change_1", "{}") // TODO find data source
+					.set("contract_state_change_1", "{}") // TODO this is now in sidecar file
 					.set("nonce", transactionMessage.getTransactionID().getNonce())
 					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
-					.set("assessed_custom_fees_1","{}") // TODO find data source
+					.set("assessed_custom_fees_1",assessedCustomFees.build().toString())
 					.set("ids", idSet);
 			// only add non-empty contract results
 			if (contractResultsObject.size() > 0) transactionRow.set("contract_results_1", jsonToString(contractResultsObject));
