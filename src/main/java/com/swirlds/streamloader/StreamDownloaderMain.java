@@ -24,8 +24,8 @@ public class StreamDownloaderMain {
 
 	public static final Map<String, Long> MAX_NUM_ROW_PER_FILE_MAP = Map.of(
 			TRANSACTIONS_TOPIC, 500_000L,
-			RECORDS_TOPIC, 30 * 60 * 24 * 30 * 3L, // 3mths
-			BALANCES_TOPIC, 25_000_000L);
+			RECORDS_TOPIC, 30 * 60 * 24 * 15L, // 15 days
+			BALANCES_TOPIC, 2_500_000L);
 
 	static {
 		Thread.setDefaultUncaughtExceptionHandler((t, e) -> Utils.failWithError(e));

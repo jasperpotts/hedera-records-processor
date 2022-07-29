@@ -28,7 +28,7 @@ public class RecordFileDownloaderBlock extends PipelineBlock.Parallel<URL, Recor
 	public static final int HASH_OBJECT_SIZE_BYTES = 8+4+4+4+48;
 
 	public RecordFileDownloaderBlock(PipelineLifecycle pipelineLifecycle) {
-		super("record-processor", pipelineLifecycle,  Math.min(32,Runtime.getRuntime().availableProcessors()));
+		super("record-processor", pipelineLifecycle,  (int)Math.min(96,Runtime.getRuntime().availableProcessors()*1.5));
 	}
 
 	@Override

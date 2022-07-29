@@ -62,7 +62,7 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			}""");
 	private final AtomicInteger biggestJsonSize = new AtomicInteger(0);
 	public TransactionProcessingBlock(PipelineLifecycle pipelineLifecycle) {
-		super("transaction-processor", pipelineLifecycle);
+		super("transaction-processor", pipelineLifecycle, 4);
 	}
 
 	@Override

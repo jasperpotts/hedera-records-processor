@@ -67,7 +67,7 @@ public abstract class PipelineBlock<I,O> implements PipelineConsumer<I> {
 			final ThreadGroup threadGroup = new ThreadGroup(name+"-processors");
 			final AtomicLong threadCount = new AtomicLong();
 			threadPoolExecutor = new ThreadPoolExecutor(
-					numOfThreads,Runtime.getRuntime().availableProcessors(), 30, TimeUnit.SECONDS,
+					numOfThreads,Runtime.getRuntime().availableProcessors()*2, 30, TimeUnit.SECONDS,
 					new ArrayBlockingQueue<>(QUEUE_SIZE),
 					runnable -> {
 						Thread thread = new Thread(threadGroup, runnable, name+"-processor-"+threadCount.incrementAndGet());

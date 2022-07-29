@@ -19,7 +19,7 @@ public class PrettyStatusPrinter {
 	public static void printStatusUpdate(long consensusTime) {
 		recordFilesProcessed ++;
 		listOfPrevConsensusTimes.add(consensusTime);
-		if (listOfPrevConsensusTimes.size() >= 50) {
+		if (listOfPrevConsensusTimes.size() >= 500) {
 			final long now = System.nanoTime();
 			final long realElapsedNanos = now - lastResetTime;
 			lastResetTime = now;
