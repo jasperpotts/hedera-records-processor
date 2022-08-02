@@ -4,7 +4,6 @@ package com.swirlds.streamloader.data;
  * Records the change of a single NFT instance
  *
  * @param consensusTimeStamp the consensus time for when the change happened
- * @param modifiedTimeStamp the modification time for when the change happened
  * @param accountNum the AccountNumber of the AccountID that owns the NFT
  * @param deleted whether the NFT is deleted
  * @param metadata String (up to 100 bytes) associated with this NFT instance
@@ -15,7 +14,6 @@ package com.swirlds.streamloader.data;
  */
 public record NftChange(
 		long consensusTimeStamp,
-		long modifiedTimeStamp,
 		long accountNum,
 		boolean deleted,
 		String metadata,
@@ -28,7 +26,6 @@ public record NftChange(
 	public String toString() {
 		return "NftChange{" +
 				"consensusTimeStamp=" + consensusTimeStamp +
-				", modifiedTimeStamp=" + modifiedTimeStamp +
 				", accountNum=" + accountNum +
 				", deleted=" + deleted +
 				", metadata=" + metadata +
