@@ -33,7 +33,6 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 			 "name": "nft",
 			 "fields": [
 			     {"name": "consensus_timestamp", "type": "long"},
-			     {"name": "modified_timestamp", "type": "long"},
 			     {"name": "account_id", "type": "long"},
 			     {"name": "deleted", "type": "boolean"},
 			     {"name": "metadata_1", "type": "string", "default": ""},
@@ -134,7 +133,6 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 		for (NftChange nftChange : nftChanges) {
 			records.add(new GenericRecordBuilder(NFT_AVRO_SCHEMA)
 					.set("consensus_timestamp", nftChange.consensusTimeStamp())
-					.set("modified_timestamp", nftChange.modifiedTimeStamp())
 					.set("account_num", nftChange.accountNum())
 					.set("deleted", nftChange.deleted())
 					.set("metadata", nftChange.metadata())
