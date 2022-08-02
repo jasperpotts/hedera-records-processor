@@ -4,6 +4,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageException;
 import com.google.cloud.storage.StorageOptions;
 
 import javax.json.Json;
@@ -45,8 +46,15 @@ public class GoogleStorageHelper {
 
 	public static ByteBuffer downloadBlob(URL url) {
 		BlobId blobId = BlobId.fromGsUtilUri(url.toString());
-		return ByteBuffer.wrap(storage.readAllBytes(blobId,blobOptions));
-//		return ByteBuffer.wrap(blob.getContent(Blob.BlobSourceOption.userProject(gcpProjectName)));
+		for (int i = 0; i < 3; i++) {
+			try {
+				return ByteBuffer.wrap(storage.readAllBytes(blobId, blobOptions));
+			} catch (StorageException se) {
+				System.out.println("StorageException TRY "+(i+1)+" to download " + url);
+				se.printStackTrace();
+			}
+		}
+		throw new RuntimeException("Failed after 3 tries to download: "+url);
 	}
 
 	public static void uploadBlob(String bucketName, String path, byte[] data) {
