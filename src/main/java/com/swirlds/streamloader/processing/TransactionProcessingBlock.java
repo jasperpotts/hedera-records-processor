@@ -48,16 +48,16 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			     {"name": "index", "type": "long"},
 			     {"name": "transaction_id", "type": "string"},
 			     {"name": "result", "type": "string"},
-			     {"name": "fields_1", "type": "string"},
-			     {"name": "transfers_tokens_1", "type": "string"},
-			     {"name": "transfers_hbar_1", "type": "string"},
-			     {"name": "transfers_nft_1", "type": "string"},
-			     {"name": "contract_logs_1", "type": "string", "default" : ""},
-			     {"name": "contract_results_1", "type": "string", "default" : ""},
-			     {"name": "contract_state_change_1", "type": "string"},
+			     {"name": "fields", "type": "string"},
+			     {"name": "transfers_tokens", "type": "string"},
+			     {"name": "transfers_hbar", "type": "string"},
+			     {"name": "transfers_nft", "type": "string"},
+			     {"name": "contract_logs", "type": "string", "default" : ""},
+			     {"name": "contract_results", "type": "string", "default" : ""},
+			     {"name": "contract_state_change", "type": "string"},
 			     {"name": "nonce", "type": "int"},
 			     {"name": "scheduled", "type": "boolean"},
-			     {"name": "assessed_custom_fees_1", "type": "string"},
+			     {"name": "assessed_custom_fees", "type": "string"},
 			     {"name": "ids", "type": {"type" : "array", "items" : "long"}}
 			 ]
 			}""");
@@ -223,18 +223,18 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.set("index", t)
 					.set("transaction_id", transactionIdToString(transactionMessage.getTransactionID()))
 					.set("result", transactionRecord.getReceipt().getStatus().toString())
-					.set("fields_1", jsonToString(fields))
-					.set("transfers_tokens_1", jsonToString(transfersTokens))
-					.set("transfers_hbar_1", jsonToString(transfersHbar))
-					.set("transfers_nft_1", jsonToString(transfersNfts))
-					.set("contract_state_change_1", "{}") // TODO this is now in sidecar file
+					.set("fields", jsonToString(fields))
+					.set("transfers_tokens", jsonToString(transfersTokens))
+					.set("transfers_hbar", jsonToString(transfersHbar))
+					.set("transfers_nft", jsonToString(transfersNfts))
+					.set("contract_state_change", "{}") // TODO this is now in sidecar file
 					.set("nonce", transactionMessage.getTransactionID().getNonce())
 					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
-					.set("assessed_custom_fees_1",assessedCustomFees.build().toString())
+					.set("assessed_custom_fees",assessedCustomFees.build().toString())
 					.set("ids", idSet);
 			// only add non-empty contract results
-			if (contractResultsObject.size() > 0) transactionRow.set("contract_results_1", jsonToString(contractResultsObject));
-			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs_1", jsonToString(contractLogsArray));
+			if (contractResultsObject.size() > 0) transactionRow.set("contract_results", jsonToString(contractResultsObject));
+			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs", jsonToString(contractLogsArray));
 			// create new row
 			records.add(transactionRow.build());
 		}

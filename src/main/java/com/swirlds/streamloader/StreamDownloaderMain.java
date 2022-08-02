@@ -18,8 +18,8 @@ import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 import java.util.Map;
 
 public class StreamDownloaderMain {
-	public static final String TRANSACTIONS_TOPIC = "transaction_record_new";
-	public static final String RECORDS_TOPIC = "record_file_new";
+	public static final String TRANSACTIONS_TOPIC = "transaction";
+	public static final String RECORDS_TOPIC = "record";
 	public static final String BALANCES_TOPIC = "balance";
 
 	public static final Map<String, Long> MAX_NUM_ROW_PER_FILE_MAP = Map.of(

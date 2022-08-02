@@ -11,7 +11,7 @@ import static com.swirlds.streamloader.util.PrettyStatusPrinter.printStatusUpdat
  * Single threaded pipeline block that connects record files and computes block numbers and previous hashes
  */
 public class BlockProcessingBlock extends PipelineBlock.Sequential<RecordFile, RecordFileBlock> {
-	private long blockNumber = 1;
+	private long blockNumber = 0; // blocks start at 0
 	private RecordFile prevRecordFile;
 
 	public BlockProcessingBlock(PipelineLifecycle pipelineLifecycle) {

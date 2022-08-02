@@ -27,8 +27,8 @@ public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFile
 			     {"name": "prev_hash", "type": "bytes", "default" : ""},
 			     {"name": "number", "type": "int"},
 			     {"name": "address_books", "type": "string"},
-			     {"name": "signature_files_1", "type": "string"},
-			     {"name": "fields_1", "type": "string"}
+			     {"name": "signature_files", "type": "string"},
+			     {"name": "fields", "type": "string"}
 			 ]
 			}""");
 	public RecordFileProcessingBlock(PipelineLifecycle pipelineLifecycle) {
@@ -44,8 +44,8 @@ public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFile
 				.set("data_hash", ByteBuffer.wrap(recordFile.hashOfThisFile()))
 				.set("number", recordFileBlock.blockNumber())
 				.set("address_books", "[]")
-				.set("signature_files_1", "[]")
-				.set("fields_1", Json.createObjectBuilder()
+				.set("signature_files", "[]")
+				.set("fields", Json.createObjectBuilder()
 						.add("count", Long.toString(recordFile.transactions().length))
 						.add("gas_used", Long.toString(Arrays.stream(recordFile.transactionRecords()).mapToLong(this::getTransactionGas).sum()))
 						.add("hapi_version", recordFile.hapiVersion())
