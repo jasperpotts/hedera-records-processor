@@ -7,6 +7,7 @@ import com.swirlds.streamloader.output.AvroGoogleBucketFileOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.BalanceProcessingBlock;
 import com.swirlds.streamloader.processing.BlockProcessingBlock;
+import com.swirlds.streamloader.processing.NftProcessingBlock;
 import com.swirlds.streamloader.processing.RecordFileDownloaderBlock;
 import com.swirlds.streamloader.processing.RecordFileProcessingBlock;
 import com.swirlds.streamloader.processing.TransactionProcessingBlock;
@@ -21,11 +22,14 @@ public class StreamDownloaderMain {
 	public static final String TRANSACTIONS_TOPIC = "transaction";
 	public static final String RECORDS_TOPIC = "record";
 	public static final String BALANCES_TOPIC = "balance";
+	public static final String NFTS_TOPIC = "nft";
 
 	public static final Map<String, Long> MAX_NUM_ROW_PER_FILE_MAP = Map.of(
-			TRANSACTIONS_TOPIC, 500_000L,
+			TRANSACTIONS_TOPIC, 250_000L,
 			RECORDS_TOPIC, 30 * 60 * 24 * 15L, // 15 days
-			BALANCES_TOPIC, 2_500_000L);
+			BALANCES_TOPIC, 2_500_000L,
+			NFTS_TOPIC, 500_000L
+	);
 
 	static {
 		Thread.setDefaultUncaughtExceptionHandler((t, e) -> Utils.failWithError(e));
@@ -54,7 +58,8 @@ public class StreamDownloaderMain {
 								.addOutputConsumer(
 										new TransactionProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
 										new BalanceProcessingBlock(balances,lifecycle).addOutputConsumer(outputHandler),
-										new RecordFileProcessingBlock(lifecycle).addOutputConsumer(outputHandler)
+										new RecordFileProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
+										new NftProcessingBlock(lifecycle).addOutputConsumer(outputHandler)
 								)
 				);
 

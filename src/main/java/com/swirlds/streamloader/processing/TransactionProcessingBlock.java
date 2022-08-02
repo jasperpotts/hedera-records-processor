@@ -40,7 +40,7 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 	private static final Schema TRANSACTION_AVRO_SCHEMA = new Schema.Parser().parse("""
 			{"namespace": "com.swirlds",
 			 "type": "record",
-			 "name": "transaction_record_new",
+			 "name": "transaction",
 			 "fields": [
 			     {"name": "consensus_timestamp", "type": "long"},
 			     {"name": "entityId", "type": "long"},

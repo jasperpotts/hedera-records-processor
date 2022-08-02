@@ -2,8 +2,6 @@ package com.swirlds.streamloader.processing;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.hederahashgraph.api.proto.java.AccountAmount;
-import com.hederahashgraph.api.proto.java.NftTransfer;
 import com.hederahashgraph.api.proto.java.SignedTransaction;
 import com.hederahashgraph.api.proto.java.TokenTransferList;
 import com.hederahashgraph.api.proto.java.Transaction;
@@ -22,7 +20,6 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 
@@ -42,10 +39,9 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 			     {"name": "spender", "type": "long"}
 			 ]
 			}""");
-	private final HashMap<NftKey, String> nfts; // map from <serialNumber, tokenId> -> Metadata
-	public NftProcessingBlock(HashMap<NftKey, String> initialNfts, PipelineLifecycle pipelineLifecycle) {
+	private final HashMap<NftKey, String> nfts = new HashMap<>(); // map from <serialNumber, tokenId> -> Metadata
+	public NftProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("nft-processor", pipelineLifecycle);
-		nfts = initialNfts;
 	}
 
 	@Override
@@ -87,7 +83,7 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 				long tokenId = tokenMint.getToken().getTokenNum(); // assume shard & realm == 0
 				List<Long> serialNumbers = transactionRecord.getReceipt().getSerialNumbersList();
 				for (int j = 0; j < serialNumbers.size(); j++) {
-					NftChange nft = new NftChange(consensusTimestamp, consensusTimestamp,
+					NftChange nft = new NftChange(consensusTimestamp,
 							transactionRecord.getReceipt().getAccountID().getAccountNum(), false,
                 			tokenMint.getMetadata(j).toStringUtf8(),
                 			transactionRecord.getReceipt().getSerialNumbers(j), tokenId, 0, 0);
@@ -103,7 +99,7 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 				for (int j = 0; j < serialNumbers.size(); j++) {
 					long serialNumber = tokenBurn.getSerialNumbers(j);
 					NftKey key = new NftKey(serialNumber, tokenId);
-					NftChange nft = new NftChange(consensusTimestamp, consensusTimestamp,
+					NftChange nft = new NftChange(consensusTimestamp,
 							transactionRecord.getReceipt().getAccountID().getAccountNum(), true,
 							nfts.get(key), serialNumber, tokenId, 0, 0);
 					nftChanges.add(nft);
@@ -118,7 +114,7 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 					for (var nftTransfer : tokenTransferList.getNftTransfersList()) {
 						long serialNumber = nftTransfer.getSerialNumber();
 						NftKey key = new NftKey(serialNumber, tokenId);
-						NftChange nft = new NftChange(consensusTimestamp, consensusTimestamp,
+						NftChange nft = new NftChange(consensusTimestamp,
 								transactionRecord.getReceipt().getAccountID().getAccountNum(), false,
 								// MYK: check order of delagateSpender vs spender
 								nfts.get(key), serialNumber, tokenId, nftTransfer.getSenderAccountID().getAccountNum(),

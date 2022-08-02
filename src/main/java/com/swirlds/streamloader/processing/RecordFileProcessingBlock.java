@@ -19,7 +19,7 @@ public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFile
 	private static final Schema RECORD_FILE_AVRO_SCHEMA = new Schema.Parser().parse("""
 			{"namespace": "com.swirlds",
 			 "type": "record",
-			 "name": "record_file_new",
+			 "name": "record",
 			 "fields": [
 			     {"name": "consensus_start_timestamp", "type": "long"},
 			     {"name": "consensus_end_timestamp", "type": "long"},
