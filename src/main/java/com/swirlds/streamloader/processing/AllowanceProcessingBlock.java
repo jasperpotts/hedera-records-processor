@@ -34,14 +34,11 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 			 "name": "allowance",
 			 "fields": [
 			     {"name": "consensus_timestamp", "type": "long"},
-			     {"name": "entity_id", "type": "long"},	// MYK -- drop and replace with
-			     // MYK {"name": "owner", "type": "long"},	// MYK ?
-			     {"name": "payer_account_id", "type": "long"}, // MYK -- drop and replace with
-			     // MYK {"name": "spender", "type": "long"},	// MYK ?
+			     {"name": "owner", "type": "long"},
+			     {"name": "spender", "type": "long"},
 			     {"name": "allowance_type", "type": "string"},
 			     {"name": "amount", "type": "long"},
 			     {"name": "is_approval", "type": "boolean"},
-			     {"name": "errata", "type": "string"},
 			     {"name": "token_id", "type": "long"},
 			 ]
 			}""");
@@ -92,7 +89,7 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							cryptoAllowance.getOwner().getAccountNum(),
 							cryptoAllowance.getSpender().getAccountNum(), "hbar", cryptoAllowance.getAmount(), true,
-							"errata", BalanceChange.HBAR_TOKEN_TYPE);
+							BalanceChange.HBAR_TOKEN_TYPE);
 					allowanceChanges.add(newAllowance);
 				}
 				// next, check for token allowances
@@ -101,7 +98,7 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							tokenAllowance.getOwner().getAccountNum(),
 							tokenAllowance.getSpender().getAccountNum(), "token", tokenAllowance.getAmount(), true,
-							"errata", tokenAllowance.getTokenId().getTokenNum());
+							tokenAllowance.getTokenId().getTokenNum());
 					allowanceChanges.add(newAllowance);
 				}
 				// next, check for nft allowances
@@ -110,7 +107,7 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							nftAllowance.getOwner().getAccountNum(),
 							nftAllowance.getSpender().getAccountNum(), "nft", 1L, true,
-							"errata", nftAllowance.getTokenId().getTokenNum());
+							nftAllowance.getTokenId().getTokenNum());
 					allowanceChanges.add(newAllowance);
 				}
 			}
@@ -124,7 +121,7 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							nftAllowance.getOwner().getAccountNum(),
 							nftAllowance.getOwner().getAccountNum(), "nft", 1L, false,
-							"errata", nftAllowance.getTokenId().getTokenNum());
+							nftAllowance.getTokenId().getTokenNum());
 					allowanceChanges.add(newAllowance);
 				}
 			}
@@ -134,12 +131,11 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 		for (AllowanceChange allowanceChange : allowanceChanges) {
 			records.add(new GenericRecordBuilder(ALLOWANCE_AVRO_SCHEMA)
 					.set("consensus_timestamp", allowanceChange.consensusTimeStamp())
-					.set("entity_id", allowanceChange.entityId()) // MYK - change to owner?
-					.set("payer_account_id", allowanceChange.payerAccountId()) // MYK - change to spender?
+					.set("owner", allowanceChange.owner())
+					.set("spender", allowanceChange.spender())
 					.set("allowance_type", allowanceChange.allowanceType())
 					.set("amount", allowanceChange.amount())
 					.set("is_approval", allowanceChange.isApproval())
-					.set("errata", allowanceChange.errata())
 					.set("token_id", allowanceChange.tokenId())
 					.build());
 		}
