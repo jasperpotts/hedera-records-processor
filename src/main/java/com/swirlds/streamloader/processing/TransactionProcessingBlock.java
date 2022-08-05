@@ -95,8 +95,15 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			// scan transfers list
 			final JsonArrayBuilder transfersHbar = Json.createArrayBuilder();
 			final TreeSet<Long> idSet = new TreeSet<>();
+			final TreeSet<Long> creditIdSet = new TreeSet<>();
+			final TreeSet<Long> debitIdSet = new TreeSet<>();
 			for (AccountAmount amount : transactionRecord.getTransferList().getAccountAmountsList()) {
 				idSet.add(amount.getAccountID().getAccountNum());
+				if (amount.getAmount() > 0) {
+					creditIdSet.add(amount.getAccountID().getAccountNum());
+				} else if (amount.getAmount() < 0) {
+					debitIdSet.add(amount.getAccountID().getAccountNum());
+				}
 				transfersHbar.add(Json.createObjectBuilder()
 						.add("account", accountIdToString(amount.getAccountID()))
 						.add("account_number", Long.toString(amount.getAccountID().getAccountNum()))
@@ -231,7 +238,9 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.set("nonce", transactionMessage.getTransactionID().getNonce())
 					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
 					.set("assessed_custom_fees",assessedCustomFees.build().toString())
-					.set("ids", idSet);
+					.set("ids", idSet)
+					.set("credit_ids", creditIdSet)
+					.set("debit_ids", debitIdSet);
 			// only add non-empty contract results
 			if (contractResultsObject.size() > 0) transactionRow.set("contract_results", jsonToString(contractResultsObject));
 			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs", jsonToString(contractLogsArray));

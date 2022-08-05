@@ -7,6 +7,7 @@ import com.swirlds.streamloader.output.AvroGoogleBucketFileOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.BalanceProcessingBlock;
 import com.swirlds.streamloader.processing.BlockProcessingBlock;
+import com.swirlds.streamloader.processing.EntityProcessingBlock;
 import com.swirlds.streamloader.processing.NftProcessingBlock;
 import com.swirlds.streamloader.processing.RecordFileDownloaderBlock;
 import com.swirlds.streamloader.processing.RecordFileProcessingBlock;
@@ -56,6 +57,7 @@ public class StreamDownloaderMain {
 				.addOutputConsumer(
 						new BlockProcessingBlock(lifecycle)
 								.addOutputConsumer(
+										new EntityProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
 										new TransactionProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
 										new BalanceProcessingBlock(balances,lifecycle).addOutputConsumer(outputHandler),
 										new RecordFileProcessingBlock(lifecycle).addOutputConsumer(outputHandler),

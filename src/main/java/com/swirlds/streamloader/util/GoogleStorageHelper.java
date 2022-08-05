@@ -61,7 +61,14 @@ public class GoogleStorageHelper {
 		System.out.println("\nUploading file to google : gs://"+ bucketName+"/"+path);
 		final BlobId blobId = BlobId.of(bucketName, path);
 		final BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
-		storage.create(blobInfo, data);
+		for (int i = 0; i < 3; i++) {
+			try {
+				storage.create(blobInfo, data);
+			} catch (StorageException se) {
+				System.out.println("StorageException TRY "+(i+1)+" to upload " + blobId.toGsUtilUri());
+				se.printStackTrace();
+			}
+		}
 	}
 
 	public static Iterator<Blob> listDirectory(final String bucketName, String gcpDirectoryPath) {
