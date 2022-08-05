@@ -1,5 +1,7 @@
 package com.swirlds.streamloader.data;
 
+import java.nio.ByteBuffer;
+
 /**
  * Records the change of a single NFT instance
  *
@@ -16,7 +18,7 @@ public record NftChange(
 		long consensusTimeStamp,
 		long accountNum,
 		boolean deleted,
-		String metadata,
+		ByteBuffer metadata,
 		long serialNumber,
 		long tokenId,
 		long delegatingSpender,

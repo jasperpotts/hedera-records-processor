@@ -17,12 +17,14 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 import static com.swirlds.streamloader.util.Utils.getEpocNanosAsLong;
 
+@SuppressWarnings("deprecation")
 public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock, List<GenericRecord>> {
 	private static final Schema NFT_AVRO_SCHEMA = new Schema.Parser().parse("""
 			{"namespace": "com.swirlds",
@@ -32,14 +34,14 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 			     {"name": "consensus_timestamp", "type": "long"},
 			     {"name": "account_id", "type": "long"},
 			     {"name": "deleted", "type": "boolean"},
-			     {"name": "metadata_1", "type": "string", "default": ""},
-			     {"name": "serialNumber", "type": "long"},
+			     {"name": "metadata", "type": "bytes", "default": ""},
+			     {"name": "serial_number", "type": "long"},
 			     {"name": "token_id", "type": "long"},
 			     {"name": "delegating_spender", "type": "long"},
 			     {"name": "spender", "type": "long"}
 			 ]
 			}""");
-	private final HashMap<NftKey, String> nfts = new HashMap<>(); // map from <serialNumber, tokenId> -> Metadata
+	private final HashMap<NftKey, ByteBuffer> nfts = new HashMap<>(); // map from <serialNumber, tokenId> -> Metadata
 	public NftProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("nft-processor", pipelineLifecycle);
 	}
@@ -83,10 +85,12 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 				long tokenId = tokenMint.getToken().getTokenNum(); // assume shard & realm == 0
 				List<Long> serialNumbers = transactionRecord.getReceipt().getSerialNumbersList();
 				for (int j = 0; j < serialNumbers.size(); j++) {
+					final ByteBuffer metadata = ByteBuffer.wrap(tokenMint.getMetadata(j).toByteArray());
 					NftChange nft = new NftChange(consensusTimestamp,
 							transactionRecord.getReceipt().getAccountID().getAccountNum(), false,
-                			tokenMint.getMetadata(j).toStringUtf8(),
+							metadata,
                 			transactionRecord.getReceipt().getSerialNumbers(j), tokenId, 0, 0);
+					nfts.put(new NftKey(serialNumbers.get(j),tokenId), metadata);
 					nftChanges.add(nft);
 				}
 			}
@@ -129,7 +133,7 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 		for (NftChange nftChange : nftChanges) {
 			records.add(new GenericRecordBuilder(NFT_AVRO_SCHEMA)
 					.set("consensus_timestamp", nftChange.consensusTimeStamp())
-					.set("account_num", nftChange.accountNum())
+					.set("account_id", nftChange.accountNum())
 					.set("deleted", nftChange.deleted())
 					.set("metadata", nftChange.metadata())
 					.set("serial_number", nftChange.serialNumber())
