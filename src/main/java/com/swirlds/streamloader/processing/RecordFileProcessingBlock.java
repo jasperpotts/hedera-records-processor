@@ -1,14 +1,11 @@
 package com.swirlds.streamloader.processing;
 
-import com.google.protobuf.Descriptors;
 import com.hederahashgraph.api.proto.java.TransactionRecord;
 import com.swirlds.streamloader.data.RecordFile;
 import com.swirlds.streamloader.data.RecordFileBlock;
 import com.swirlds.streamloader.util.PipelineBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericArray;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 
@@ -19,8 +16,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class RecordFileProcessingBlock extends PipelineBlock.Parallel<RecordFileBlock, List<GenericRecord>> {
-	private static final ByteBuffer EMPTY_BYTES = ByteBuffer.allocate(0);
-	private static final Schema ARRAY_OF_BYTES_SCHEMA = Schema.createArray(Schema.create(Schema.Type.BYTES));
 	private static final Schema RECORD_FILE_AVRO_SCHEMA = new Schema.Parser().parse("""
 			{"namespace": "com.swirlds",
 			 "type": "record",
