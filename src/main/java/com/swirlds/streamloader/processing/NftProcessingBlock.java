@@ -131,16 +131,18 @@ public class NftProcessingBlock extends PipelineBlock.Sequential<RecordFileBlock
 		final List<GenericRecord> records = new ArrayList<>();
 		// create json for nft changes
 		for (NftChange nftChange : nftChanges) {
-			records.add(new GenericRecordBuilder(NFT_AVRO_SCHEMA)
+			var nftBuilder = new GenericRecordBuilder(NFT_AVRO_SCHEMA)
 					.set("consensus_timestamp", nftChange.consensusTimeStamp())
 					.set("account_id", nftChange.accountNum())
 					.set("deleted", nftChange.deleted())
-					.set("metadata", nftChange.metadata())
 					.set("serial_number", nftChange.serialNumber())
 					.set("token_id", nftChange.tokenId())
 					.set("delegating_spender", nftChange.delegatingSpender())
-					.set("spender", nftChange.spender())
-					.build());
+					.set("spender", nftChange.spender());
+			if (nftChange.metadata() != null) {
+				nftBuilder.set("metadata", nftChange.metadata());
+			}
+			records.add(nftBuilder.build());
 		}
 		return records;
 	}

@@ -58,7 +58,9 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			     {"name": "nonce", "type": "int"},
 			     {"name": "scheduled", "type": "boolean"},
 			     {"name": "assessed_custom_fees", "type": "string"},
-			     {"name": "ids", "type": {"type" : "array", "items" : "long"}}
+			     {"name": "ids", "type": {"type" : "array", "items" : "long"}},
+			     {"name": "credit_ids", "type": {"type" : "array", "items" : "long"}},
+			     {"name": "debit_ids", "type": {"type" : "array", "items" : "long"}}
 			 ]
 			}""");
 	private final AtomicInteger biggestJsonSize = new AtomicInteger(0);

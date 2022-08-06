@@ -6,7 +6,10 @@ import org.apache.avro.generic.GenericRecordBuilder;
 
 import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonStructure;
+import javax.json.JsonValue;
+import java.nio.ByteBuffer;
 import java.util.Locale;
 
 /**
@@ -56,11 +59,11 @@ public final class Entity {
 			 "fields": [
 			     {"name": "consensus_timestamp", "type": "long"},
 			     {"name": "entity_number", "type": "long"},
-			     {"name": "evm_address", "type": "bytes"},
-			     {"name": "alias", "type": "bytes"}
-			     {"name": "type", "type": "string"}
-			     {"name": "public_key", "type": "string"}
-			     {"name": "fields", "type": "string"}
+			     {"name": "evm_address", "type": "bytes", "default": ""},
+			     {"name": "alias", "type": "bytes", "default": ""},
+			     {"name": "type", "type": "string", "default": ""},
+			     {"name": "public_key", "type": "string", "default": ""},
+			     {"name": "fields", "type": "string", "default": ""}
 			 ]
 			}""");
 
@@ -70,7 +73,7 @@ public final class Entity {
 	private byte[] alias;
 	private Type type;
 	private JsonStructure public_key;
-	private final JsonObject fields;
+	private final JsonObjectBuilder fields;
 
 	public Entity() {
 		this.consensus_timestamp = -1;
@@ -78,14 +81,26 @@ public final class Entity {
 		this.evm_address = null;
 		this.alias = null;
 		this.type = null;
-		this.public_key = Json.createObjectBuilder().build();
-		this.fields = Json.createObjectBuilder().build();
+		this.public_key = JsonValue.EMPTY_JSON_OBJECT;
+		this.fields = Json.createObjectBuilder();
+	}
+
+	public Entity(final long entity_number, final Type type) {
+		this.consensus_timestamp = -1;
+		this.entity_number = -1;
+		this.evm_address = null;
+		this.alias = null;
+		this.type = type;
+		this.public_key = JsonValue.EMPTY_JSON_OBJECT;
+		this.fields = Json.createObjectBuilder()
+				.add("realm", 0)
+				.add("shard", 0);
 	}
 
 	public Entity(final long consensus_timestamp, final long entity_number, final byte[] evm_address,
 			final byte[] alias,
 			final Type type,
-			final JsonStructure public_key, final JsonObject fields) {
+			final JsonStructure public_key, final JsonObjectBuilder fields) {
 		this.consensus_timestamp = consensus_timestamp;
 		this.entity_number = entity_number;
 		this.evm_address = evm_address;
@@ -95,11 +110,11 @@ public final class Entity {
 		this.fields = fields;
 	}
 
-	public long getConsensus_timestamp() {
+	public long getConsensusTimestamp() {
 		return consensus_timestamp;
 	}
 
-	public void setConsensus_timestamp(final long consensus_timestamp) {
+	public void setConsensusTimestamp(final long consensus_timestamp) {
 		this.consensus_timestamp = consensus_timestamp;
 	}
 
@@ -143,19 +158,19 @@ public final class Entity {
 		this.public_key = public_key;
 	}
 
-	public JsonObject getFields() {
+	public JsonObjectBuilder getFields() {
 		return fields;
 	}
 
 	public GenericRecord asAvro() {
-		return new GenericRecordBuilder(AVRO_SCHEMA)
+		final var builder = new GenericRecordBuilder(AVRO_SCHEMA)
 				.set("consensus_timestamp",consensus_timestamp)
 				.set("entity_number",entity_number)
-				.set("evm_address",evm_address)
-				.set("alias",alias)
-				.set("type",type.toString().toUpperCase(Locale.ROOT))
-				.set("public_key",public_key.toString())
-				.set("fields",public_key.toString())
-				.build();
+				.set("type",type.toString().toUpperCase(Locale.ROOT));
+		if (alias != null) builder.set("alias", ByteBuffer.wrap(alias));
+		if (evm_address != null) builder.set("evm_address",evm_address);
+		if (public_key != null) builder.set("public_key",public_key.toString());
+		if (fields != null) builder.set("fields",fields.build().toString());
+		return builder.build();
 	}
 }
