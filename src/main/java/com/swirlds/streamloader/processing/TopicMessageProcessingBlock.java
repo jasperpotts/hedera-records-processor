@@ -44,6 +44,7 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 			     {"name": "noncw", "type": "int"},
 			     {"name": "scheduled", "type": "boolean"},
 			     {"name": "consensus_start_timestamp", "type": "long"}
+			 ]
 			}""");
 
 	public TopicMessageProcessingBlock(PipelineLifecycle pipelineLifecycle) {

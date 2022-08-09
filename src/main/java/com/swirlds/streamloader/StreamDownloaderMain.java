@@ -11,6 +11,7 @@ import com.swirlds.streamloader.processing.EntityProcessingBlock;
 import com.swirlds.streamloader.processing.NftProcessingBlock;
 import com.swirlds.streamloader.processing.RecordFileDownloaderBlock;
 import com.swirlds.streamloader.processing.RecordFileProcessingBlock;
+import com.swirlds.streamloader.processing.TopicMessageProcessingBlock;
 import com.swirlds.streamloader.processing.TransactionProcessingBlock;
 import com.swirlds.streamloader.util.PipelineLifecycle;
 import com.swirlds.streamloader.util.Utils;
@@ -25,12 +26,14 @@ public class StreamDownloaderMain {
 	public static final String RECORDS_TOPIC = "record";
 	public static final String BALANCES_TOPIC = "balance";
 	public static final String NFTS_TOPIC = "nft";
+	public static final String TOPIC_MESSAGES_TOPIC = "topic-messages";
 
 	public static final Map<String, Long> MAX_NUM_ROW_PER_FILE_MAP = Map.of(
 			TRANSACTIONS_TOPIC, 250_000L,
 			RECORDS_TOPIC, 30 * 60 * 24 * 15L, // 15 days
 			BALANCES_TOPIC, 2_500_000L,
-			NFTS_TOPIC, 500_000L
+			NFTS_TOPIC, 500_000L,
+			TOPIC_MESSAGES_TOPIC, 250_000L
 	);
 
 	static {
@@ -63,7 +66,8 @@ public class StreamDownloaderMain {
 										new TransactionProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
 										new BalanceProcessingBlock(balances,lifecycle).addOutputConsumer(outputHandler),
 										new RecordFileProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
-										new NftProcessingBlock(lifecycle).addOutputConsumer(outputHandler)
+										new NftProcessingBlock(lifecycle).addOutputConsumer(outputHandler),
+										new TopicMessageProcessingBlock(lifecycle).addOutputConsumer(outputHandler)
 								)
 				);
 
