@@ -1,5 +1,7 @@
 package com.swirlds.streamloader.data;
 
+import java.nio.ByteBuffer;
+
 /**
  * Records the change of a single TopicMessage instance
  *
@@ -19,8 +21,8 @@ package com.swirlds.streamloader.data;
  */
 public record TopicMessageChange(
 		long consensusTimeStamp,
-		byte[] message,
-		byte[] runningHash,
+		ByteBuffer message,
+		ByteBuffer runningHash,
 		int sequenceNumber,
 		int runningHashVersion,
 		int chunkNumber,

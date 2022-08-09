@@ -19,6 +19,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,10 +39,10 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 			     {"name": "running_hash_version", "type": "int"},
 			     {"name": "chunk_number", "type": "int"},
 			     {"name": "chunk_total", "type": "int"},
-			     {"name": "pauer_account_id", "type": "long"},
+			     {"name": "payer_account_id", "type": "long"},
 			     {"name": "topic_id", "type": "int"},
 			     {"name": "initial_transaction_id", "type": "string"},
-			     {"name": "noncw", "type": "int"},
+			     {"name": "nonce", "type": "int"},
 			     {"name": "scheduled", "type": "boolean"},
 			     {"name": "consensus_start_timestamp", "type": "long"}
 			 ]
@@ -106,23 +107,24 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 						initialTransactionId = toHex(chunkInfo.getInitialTransactionID().toByteArray());
 					}
 				}
-				byte[] messageBytes = message.getMessage().toByteArray();
-				byte[] runningHashBytes = receipt.getTopicRunningHash().toByteArray();
+				ByteBuffer messageBytes = ByteBuffer.wrap(message.getMessage().toByteArray());
+				ByteBuffer runningHashBytes = ByteBuffer.wrap(receipt.getTopicRunningHash().toByteArray());
 				int sequenceNumber = (int) receipt.getTopicSequenceNumber();
 				long payerAccountId = transactionRecord.getTransactionID().getAccountID().getAccountNum();
 				int nonce = transactionBody.getTransactionID().getNonce();
 				boolean scheduled = transactionBody.getTransactionID().getScheduled();
 				long consensusStartTimeStamp = recordFile.startConsensusTime();
 
-				TopicMessageChange newTopicMessage = new TopicMessageChange(consensusTimestamp, messageBytes,
-						runningHashBytes, sequenceNumber, runningHashVersion, chunkNumber, chunkTotal, payerAccountId,
-						topicId, initialTransactionId, nonce, scheduled, consensusStartTimeStamp);
+				TopicMessageChange newTopicMessage = new TopicMessageChange(consensusTimestamp,
+						messageBytes, runningHashBytes, sequenceNumber, runningHashVersion, chunkNumber, chunkTotal,
+						payerAccountId, topicId, initialTransactionId, nonce, scheduled, consensusStartTimeStamp);
 				topicMessageChanges.add(newTopicMessage);
 			}
 		}
 
 		final List<GenericRecord> records = new ArrayList<>();
 		// create json for topic message changes
+		int counter = 0;
 		for (TopicMessageChange topicMessageChange : topicMessageChanges) {
 			records.add(new GenericRecordBuilder(TOPIC_KESSAGE_AVRO_SCHEMA)
 					.set("consensus_timestamp", topicMessageChange.consensusTimeStamp())
@@ -139,7 +141,9 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 					.set("scheduled", topicMessageChange.scheduled())
 					.set("consensus_start_timestamp", topicMessageChange.consensusStartTimeStamp())
 					.build());
+			counter++;
 		}
+		System.out.println("TopicMessageChange found " + counter + " topic messages.");
 		return records;
 	}
 }
