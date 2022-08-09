@@ -62,7 +62,8 @@ public final class Entity {
 			     {"name": "evm_address", "type": "bytes", "default": ""},
 			     {"name": "alias", "type": "bytes", "default": ""},
 			     {"name": "type", "type": "string", "default": ""},
-			     {"name": "public_key", "type": "string", "default": ""},
+			     {"name": "public_key_type", "type": "string", "default": ""},
+			     {"name": "public_key", "type": "bytes", "default": ""},
 			     {"name": "fields", "type": "string", "default": ""}
 			 ]
 			}""");
@@ -72,7 +73,8 @@ public final class Entity {
 	private byte[] evm_address;
 	private byte[] alias;
 	private Type type;
-	private JsonStructure public_key;
+	private String public_key_type;
+	private ByteBuffer public_key;
 	private final JsonObjectBuilder fields;
 
 	public Entity() {
@@ -81,7 +83,6 @@ public final class Entity {
 		this.evm_address = null;
 		this.alias = null;
 		this.type = null;
-		this.public_key = JsonValue.EMPTY_JSON_OBJECT;
 		this.fields = Json.createObjectBuilder();
 	}
 
@@ -91,7 +92,6 @@ public final class Entity {
 		this.evm_address = null;
 		this.alias = null;
 		this.type = type;
-		this.public_key = JsonValue.EMPTY_JSON_OBJECT;
 		this.fields = Json.createObjectBuilder()
 				.add("realm", 0)
 				.add("shard", 0);
@@ -100,12 +100,15 @@ public final class Entity {
 	public Entity(final long consensus_timestamp, final long entity_number, final byte[] evm_address,
 			final byte[] alias,
 			final Type type,
-			final JsonStructure public_key, final JsonObjectBuilder fields) {
+			final String public_key_type,
+			final ByteBuffer public_key,
+			final JsonObjectBuilder fields) {
 		this.consensus_timestamp = consensus_timestamp;
 		this.entity_number = entity_number;
 		this.evm_address = evm_address;
 		this.alias = alias;
 		this.type = type;
+		this.public_key_type = public_key_type;
 		this.public_key = public_key;
 		this.fields = fields;
 	}
@@ -150,11 +153,19 @@ public final class Entity {
 		this.type = type;
 	}
 
-	public JsonStructure getPublicKey() {
+	public String getPublicKeyType() {
+		return public_key_type;
+	}
+
+	public void setPublicKeyType(final String public_key_type) {
+		this.public_key_type = public_key_type;
+	}
+
+	public ByteBuffer getPublicKey() {
 		return public_key;
 	}
 
-	public void setPublicKey(final JsonStructure public_key) {
+	public void setPublicKey(final ByteBuffer public_key) {
 		this.public_key = public_key;
 	}
 
@@ -169,7 +180,8 @@ public final class Entity {
 				.set("type",type.toString().toUpperCase(Locale.ROOT));
 		if (alias != null) builder.set("alias", ByteBuffer.wrap(alias));
 		if (evm_address != null) builder.set("evm_address",evm_address);
-		if (public_key != null) builder.set("public_key",public_key.toString());
+		if (public_key_type != null) builder.set("public_key_type",public_key_type);
+		if (public_key != null) builder.set("public_key",public_key);
 		if (fields != null) builder.set("fields",fields.build().toString());
 		return builder.build();
 	}

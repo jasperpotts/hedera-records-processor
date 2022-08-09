@@ -3,7 +3,7 @@ package com.swirlds.streamloader;
 import com.swirlds.streamloader.data.BalanceKey;
 import com.swirlds.streamloader.input.FileLoader;
 import com.swirlds.streamloader.input.GoogleStorageFileLoader;
-import com.swirlds.streamloader.output.AvroGoogleBucketFileOutputHandler;
+import com.swirlds.streamloader.output.AvroToFileThenGoogleOutputHandler;
 import com.swirlds.streamloader.output.OutputHandler;
 import com.swirlds.streamloader.processing.BalanceProcessingBlock;
 import com.swirlds.streamloader.processing.BlockProcessingBlock;
@@ -17,6 +17,7 @@ import com.swirlds.streamloader.util.Utils;
 import org.apache.avro.generic.GenericRecord;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
+import java.nio.file.Path;
 import java.util.Map;
 
 public class StreamDownloaderMain {
@@ -42,7 +43,8 @@ public class StreamDownloaderMain {
 				"0.0.3"
 		);
 //		try (OutputHandler<GenericRecord> outputHandler = new AvroFileOutputHandler()) {
-		try (OutputHandler<GenericRecord> outputHandler = new AvroGoogleBucketFileOutputHandler("pinot-ingestion")) {
+//		try (OutputHandler<GenericRecord> outputHandler = new AvroGoogleBucketFileOutputHandler("pinot-ingestion")) {
+		try (OutputHandler<GenericRecord> outputHandler = new AvroToFileThenGoogleOutputHandler(Path.of("bucket-output"),"pinot-ingestion")) {
 //		try (OutputHandler outputHandler = new KafkaOutputHandler("kafka")) {
 			processRecords(recordFileLoader, outputHandler);
 		}

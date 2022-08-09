@@ -59,11 +59,11 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 			     {"name": "scheduled", "type": "boolean"},
 			     {"name": "assessed_custom_fees", "type": "string"},
 			     {"name": "ids", "type": {"type" : "array", "items" : "long"}},
-			     {"name": "credit_ids", "type": {"type" : "array", "items" : "long"}},
-			     {"name": "debit_ids", "type": {"type" : "array", "items" : "long"}}
+			     {"name": "credited_ids", "type": {"type" : "array", "items" : "long"}},
+			     {"name": "debited_ids", "type": {"type" : "array", "items" : "long"}}
 			 ]
 			}""");
-	private final AtomicInteger biggestJsonSize = new AtomicInteger(0);
+//	private final AtomicInteger biggestJsonSize = new AtomicInteger(0);
 	public TransactionProcessingBlock(PipelineLifecycle pipelineLifecycle) {
 		super("transaction-processor", pipelineLifecycle, 4);
 	}
@@ -241,8 +241,8 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 					.set("scheduled",transactionMessage.getTransactionID().getScheduled())
 					.set("assessed_custom_fees",assessedCustomFees.build().toString())
 					.set("ids", idSet)
-					.set("credit_ids", creditIdSet)
-					.set("debit_ids", debitIdSet);
+					.set("credited_ids", creditIdSet)
+					.set("debited_ids", debitIdSet);
 			// only add non-empty contract results
 			if (contractResultsObject.size() > 0) transactionRow.set("contract_results", jsonToString(contractResultsObject));
 			if (contractLogsArray.size() > 0) transactionRow.set("contract_logs", jsonToString(contractLogsArray));
@@ -266,14 +266,14 @@ public class TransactionProcessingBlock extends PipelineBlock.Parallel<RecordFil
 	}
 	private String jsonToString(final String str) {
 		final int length = str.length();
-		biggestJsonSize.updateAndGet(old -> {
-			if (length > old) {
-				System.out.println("New max json length = " + length);
-				return length;
-			} else {
-				return old;
-			}
-		});
+//		biggestJsonSize.updateAndGet(old -> {
+//			if (length > old) {
+//				System.out.println("New max json length = " + length);
+//				return length;
+//			} else {
+//				return old;
+//			}
+//		});
 		return str;
 	}
 

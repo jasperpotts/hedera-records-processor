@@ -35,6 +35,7 @@ import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonStructure;
 import javax.json.JsonValue;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -79,16 +80,19 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 
 				if (transactionMessage.hasCryptoCreateAccount()) { // account creation -------------
 					Entity entity = accountToEntity(transactionRecord, transactionMessage, consensusTimestampNanosLong);
+//					System.out.println("Creating account id = " + transactionRecord.getReceipt().getAccountID().getAccountNum());
 					entities.put(transactionRecord.getReceipt().getAccountID().getAccountNum(), entity);
 					records.add(entity.asAvro());
 				} else if (transactionMessage.hasCryptoUpdateAccount()) { // account update -------------
 					final var id = transactionMessage.getCryptoUpdateAccount().getAccountIDToUpdate().getAccountNum();
+//					System.out.println("Updating account id = " + id);
 					final Entity entity = entities.getIfAbsentPut(id, new Entity(id, Entity.Type.account));
 					entity.setConsensusTimestamp(consensusTimestampNanosLong);
 					updateAccount(transactionMessage, entity);
 					records.add(entity.asAvro());
 				} else if (transactionMessage.hasCryptoDelete()) { // account delete -------------
 					final var id = transactionMessage.getCryptoDelete().getDeleteAccountID().getAccountNum();
+//					System.out.println("Deleting account id = " + id);
 					final Entity entity = entities.get(id);
 					if (entity != null) {
 						// TODO handle extra data from transactionMessage.getCryptoDelete();
@@ -241,7 +245,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 				null, // TODO evm address?
 				null, // TODO alias?
 				Entity.Type.account,
-				keyToJson(createAccount.getKey()),
+				keyToType(createAccount.getKey()),
+				keyToBytes(createAccount.getKey()),
 				extraFields
 		);
 	}
@@ -279,7 +284,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 		}
 		// TODO, where from? extraFields.add("stake_period_start","null")
 		if (updateAccount.hasKey()) {
-			entity.setPublicKey(keyToJson(updateAccount.getKey()));
+			entity.setPublicKeyType(keyToType(updateAccount.getKey()));
+			entity.setPublicKey(keyToBytes(updateAccount.getKey()));
 		}
 	}
 
@@ -317,7 +323,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 				null, // TODO evm address?
 				null, // TODO alias?
 				Entity.Type.token,
-				keyToJson(tokenCreation.getAdminKey()),
+				keyToType(tokenCreation.getAdminKey()),
+				keyToBytes(tokenCreation.getAdminKey()),
 				extraFields
 		);
 	}
@@ -330,7 +337,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 		if (tokenUpdate.hasTreasury()) extraFields.add("treasury",Json.createValue(accountIdToString(tokenUpdate.getTreasury())));
 		if (tokenUpdate.hasAdminKey()) {
 			extraFields.add("adminKey", keyToJson(tokenUpdate.getAdminKey()));
-			entity.setPublicKey(keyToJson(tokenUpdate.getAdminKey()));
+			entity.setPublicKeyType(keyToType(tokenUpdate.getAdminKey()));
+			entity.setPublicKey(keyToBytes(tokenUpdate.getAdminKey()));
 		}
 		if (tokenUpdate.hasKycKey()) extraFields.add("kycKey", keyToJson(tokenUpdate.getKycKey()));
 		if (tokenUpdate.hasFreezeKey()) extraFields.add("freezeKey", keyToJson(tokenUpdate.getFreezeKey()));
@@ -362,7 +370,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 				null, // TODO evm address?
 				null, // TODO alias?
 				Entity.Type.topic,
-				keyToJson(topicCreation.getAdminKey()),
+				keyToType(topicCreation.getAdminKey()),
+				keyToBytes(topicCreation.getAdminKey()),
 				extraFields
 		);
 	}
@@ -372,7 +381,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 		if (topicUpdate.hasMemo()) extraFields.add("memo",Json.createValue(topicUpdate.getMemo().toString()));
 		if (topicUpdate.hasAdminKey()) {
 			extraFields.add("adminKey", keyToJson(topicUpdate.getAdminKey()));
-			entity.setPublicKey(keyToJson(topicUpdate.getAdminKey()));
+			entity.setPublicKeyType(keyToType(topicUpdate.getAdminKey()));
+			entity.setPublicKey(keyToBytes(topicUpdate.getAdminKey()));
 		}
 		if (topicUpdate.hasSubmitKey()) extraFields.add("submitKey", keyToJson(topicUpdate.getSubmitKey()));
 		if (topicUpdate.hasAutoRenewAccount()) extraFields.add("autoRenewAccount",Json.createValue(accountIdToString(topicUpdate.getAutoRenewAccount())));
@@ -424,7 +434,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 				null, // TODO evm address?
 				null, // TODO alias?
 				Entity.Type.contract,
-				keyToJson(contractCreation.getAdminKey()),
+				keyToType(contractCreation.getAdminKey()),
+				keyToBytes(contractCreation.getAdminKey()),
 				extraFields
 		);
 	}
@@ -433,7 +444,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 		final ContractUpdateTransactionBody contractUpdate = transactionMessage.getContractUpdateInstance();
 		if (contractUpdate.hasAdminKey()) {
 			extraFields.add("adminKey", keyToJson(contractUpdate.getAdminKey()));
-			entity.setPublicKey(keyToJson(contractUpdate.getAdminKey()));
+			entity.setPublicKeyType(keyToType(contractUpdate.getAdminKey()));
+			entity.setPublicKey(keyToBytes(contractUpdate.getAdminKey()));
 		}
 		if (contractUpdate.hasAutoRenewPeriod()) {
 			extraFields.add("proxyAccountID",Json.createValue(accountIdToString(contractUpdate.getProxyAccountID())));
@@ -485,7 +497,8 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 				null, // TODO evm address?
 				null, // TODO alias?
 				Entity.Type.file,
-				fileCreate.hasKeys() ? keyToJson(fileCreate.getKeys()) : JsonValue.EMPTY_JSON_ARRAY,
+				fileCreate.hasKeys() ? keyToType(fileCreate.getKeys()) : null,
+				fileCreate.hasKeys() ? keyToBytes(fileCreate.getKeys()) : null,
 				extraFields
 		);
 	}
@@ -497,7 +510,7 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 		if (contents != null && contents != JsonValue.NULL) {
 			oldContents = contents.toString();
 		}
-		extraFields.add("contents",contents+fileAppend.getContents().toString());
+		extraFields.add("contents",oldContents+fileAppend.getContents());
 	}
 	private void updateFile(final TransactionBody transactionMessage,final Entity entity) {
 		final JsonObjectBuilder extraFields = entity.getFields();
@@ -549,6 +562,56 @@ public class EntityProcessingBlock extends PipelineBlock.Sequential<RecordFileBl
 					.build();
 		}
 	}
+	public static String keyToType(Key key) {
+		if (key.hasECDSA384()) {
+			return "ECDSA384";
+		} else if (key.hasECDSASecp256K1()) {
+			return "ECDSASecp256K1";
+		} else if (key.hasEd25519()) {
+			return "Ed25519";
+		} else if (key.hasRSA3072()) {
+			return "RSA3072";
+		} else if (key.hasContractID()) {
+			return "contractID";
+		} else if (key.hasDelegatableContractId()) {
+			return "delegatableContractId";
+		} else if (key.hasKeyList()) {
+			return "KEY_LIST";
+		} else {
+			return "UNKNOWN";
+		}
+	}
+	public static ByteBuffer keyToBytes(Key key) {
+		if (key.hasECDSA384()) {
+			return ByteBuffer.wrap(key.getECDSA384().toByteArray());
+		} else if (key.hasECDSASecp256K1()) {
+			return ByteBuffer.wrap(key.getECDSASecp256K1().toByteArray());
+		} else if (key.hasEd25519()) {
+			return ByteBuffer.wrap(key.getEd25519().toByteArray());
+		} else if (key.hasRSA3072()) {
+			return ByteBuffer.wrap(key.getRSA3072().toByteArray());
+		} else if (key.hasContractID()) {
+			return ByteBuffer.wrap((key.getContractID().getShardNum()+"."+key.getContractID().getRealmNum()+"."+key.getContractID().getContractNum()).getBytes());
+		} else if (key.hasDelegatableContractId()) {
+			return ByteBuffer.wrap(
+					(key.getDelegatableContractId().getShardNum()+"."+key.getDelegatableContractId().getRealmNum()+"."+key.getDelegatableContractId().getContractNum()).getBytes());
+		} else if (key.hasKeyList()) {
+			return keyToBytes(key.getKeyList());
+		} else {
+			// TODO handle unknown key
+			return null;
+		}
+	}
+
+	@SuppressWarnings("unused")
+	public static String keyToType(KeyList keyList) {
+		return "KEY_LIST";
+	}
+	public static ByteBuffer keyToBytes(KeyList keyList) {
+		// TODO not ideal
+		return ByteBuffer.wrap(keyToJson(keyList).toString().getBytes());
+	}
+
 	public static JsonStructure keyToJson(KeyList keyList) {
 		final JsonArrayBuilder array = Json.createArrayBuilder();
 		for(Key subKey: keyList.getKeysList()) {
