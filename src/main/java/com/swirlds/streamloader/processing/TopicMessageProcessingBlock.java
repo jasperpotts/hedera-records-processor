@@ -124,7 +124,6 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 
 		final List<GenericRecord> records = new ArrayList<>();
 		// create json for topic message changes
-		int counter = 0;
 		for (TopicMessageChange topicMessageChange : topicMessageChanges) {
 			records.add(new GenericRecordBuilder(TOPIC_KESSAGE_AVRO_SCHEMA)
 					.set("consensus_timestamp", topicMessageChange.consensusTimeStamp())
@@ -141,9 +140,7 @@ public class TopicMessageProcessingBlock extends PipelineBlock.Sequential<Record
 					.set("scheduled", topicMessageChange.scheduled())
 					.set("consensus_start_timestamp", topicMessageChange.consensusStartTimeStamp())
 					.build());
-			counter++;
 		}
-		System.out.println("TopicMessageChange found " + counter + " topic messages.");
 		return records;
 	}
 }
