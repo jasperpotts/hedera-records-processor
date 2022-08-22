@@ -40,6 +40,9 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 			     {"name": "amount", "type": "long"},
 			     {"name": "is_approval", "type": "boolean"},
 			     {"name": "token_id", "type": "long"},
+			     {"name": "timestamp_start", "type": "long"},
+			     {"name": "timestamp_end", "type": "long"},
+			     {"name": "payer_account_id", "type": "long"}
 			 ]
 			}""");
 	public AllowanceProcessingBlock(PipelineLifecycle pipelineLifecycle) {
@@ -51,9 +54,11 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 		// First we need to process all transaction records and extract the allowance changes
 		final RecordFile recordFile = recordFileBlock.recordFile();
 		final List<AllowanceChange> allowanceChanges = new ArrayList<>();
+        long payerAccountId; // extracted from the transactionRecord.
 		for (int i = 0; i < recordFile.transactions().length; i++) {
 			final Transaction transaction = recordFile.transactions()[i];
 			final TransactionRecord transactionRecord = recordFile.transactionRecords()[i];
+            payerAccountId = transactionRecord.getTransactionID().getAccountID().getAccountNum();
 			// extract consensus time stamp
 			final long consensusTimestamp = getEpocNanosAsLong(
 					transactionRecord.getConsensusTimestamp().getSeconds(),
@@ -89,7 +94,7 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							cryptoAllowance.getOwner().getAccountNum(),
 							cryptoAllowance.getSpender().getAccountNum(), "hbar", cryptoAllowance.getAmount(), true,
-							BalanceChange.HBAR_TOKEN_TYPE);
+							BalanceChange.HBAR_TOKEN_TYPE, consensusTimestamp, consensusTimestamp, payerAccountId);
 					allowanceChanges.add(newAllowance);
 				}
 				// next, check for token allowances
@@ -98,7 +103,8 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							tokenAllowance.getOwner().getAccountNum(),
 							tokenAllowance.getSpender().getAccountNum(), "token", tokenAllowance.getAmount(), true,
-							tokenAllowance.getTokenId().getTokenNum());
+							tokenAllowance.getTokenId().getTokenNum(), consensusTimestamp, consensusTimestamp,
+							payerAccountId);
 					allowanceChanges.add(newAllowance);
 				}
 				// next, check for nft allowances
@@ -107,7 +113,8 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							nftAllowance.getOwner().getAccountNum(),
 							nftAllowance.getSpender().getAccountNum(), "nft", 1L, true,
-							nftAllowance.getTokenId().getTokenNum());
+							nftAllowance.getTokenId().getTokenNum(), consensusTimestamp, consensusTimestamp,
+							payerAccountId);
 					allowanceChanges.add(newAllowance);
 				}
 			}
@@ -121,7 +128,8 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					AllowanceChange newAllowance = new AllowanceChange(consensusTimestamp, 
 							nftAllowance.getOwner().getAccountNum(),
 							nftAllowance.getOwner().getAccountNum(), "nft", 1L, false,
-							nftAllowance.getTokenId().getTokenNum());
+							nftAllowance.getTokenId().getTokenNum(), consensusTimestamp, consensusTimestamp,
+							payerAccountId);
 					allowanceChanges.add(newAllowance);
 				}
 			}
@@ -137,6 +145,9 @@ public class AllowanceProcessingBlock extends PipelineBlock.Sequential<RecordFil
 					.set("amount", allowanceChange.amount())
 					.set("is_approval", allowanceChange.isApproval())
 					.set("token_id", allowanceChange.tokenId())
+					.set("timestamp_start", allowanceChange.timestampStart())
+					.set("timestamp_end", allowanceChange.timestampEnd())
+					.set("payer_account_id", allowanceChange.payerAccountId())
 					.build());
 		}
 		return records;

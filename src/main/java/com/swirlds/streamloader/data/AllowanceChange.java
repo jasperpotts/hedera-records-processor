@@ -10,6 +10,9 @@ package com.swirlds.streamloader.data;
  * @param amount number of units in the allowance
  * @param isApproval TBD
  * @param tokenId the AccountNumber part of the tokenID of the Allowance.
+ * @param timestampStart the nanosecond where the allowance starts.
+ * @param timestampEnd the nanosecond where the allowance ends.
+ * @param payerAccountId the AccountNumber part of the payerAccount.
  */
 public record AllowanceChange(
 		long consensusTimeStamp,
@@ -18,7 +21,10 @@ public record AllowanceChange(
 		String allowanceType,
 		long amount,
 		boolean isApproval,
-		long tokenId
+		long tokenId,
+		long timestampStart,
+		long timestampEnd,
+		long payerAccountId
 ) {
 	@Override
 	public String toString() {
@@ -30,6 +36,9 @@ public record AllowanceChange(
 				", amount=" + amount +
 				", isApproval=" + isApproval +
 				", tokenId=" + tokenId +
+				", timestampStart=" + timestampStart +
+				", timestampEnd=" + timestampEnd +
+				", payerAccountId=" + payerAccountId +
 				'}';
 	}
 }
