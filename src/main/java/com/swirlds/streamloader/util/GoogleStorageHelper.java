@@ -104,7 +104,7 @@ public class GoogleStorageHelper {
 		try {
 			// read whole file into a ByteBuffer
 			final int fileSize = (int)Files.size(filePath);
-			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, true);
+			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, false);
 			try (final var channel = Files.newByteChannel(filePath, READ)) {
 				channel.read(inputBuffer);
 			}
