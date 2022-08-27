@@ -24,6 +24,7 @@ import java.util.zip.Deflater;
 import java.util.zip.GZIPOutputStream;
 
 import static com.swirlds.streamloader.util.GoogleStorageHelper.compressAndUploadFile;
+import static com.swirlds.streamloader.util.GoogleStorageHelper.uploadFile;
 
 /**
  * OutputHandler that write AVRO.gz files to local directory then has a pool of threads uploading to GCP
@@ -37,6 +38,9 @@ public class AvroToFileThenGoogleOutputHandler implements OutputHandler<GenericR
 	private final String bucketName;
 	private final AtomicBoolean closed = new AtomicBoolean(false);
 
+	// until https://github.com/jasperpotts/hedera-records-processor/issues/4 is truly fixed, don't use compression.
+	private final boolean COMPRESS_AVRO_FILES = false;
+
 	public AvroToFileThenGoogleOutputHandler(final Path localDirectory, final String bucketName) {
 		this.localDirectory = localDirectory;
 		this.bucketName = bucketName;
@@ -45,7 +49,7 @@ public class AvroToFileThenGoogleOutputHandler implements OutputHandler<GenericR
 		final ThreadGroup threadGroup = new ThreadGroup("gcp-uploaders");
 		final AtomicLong threadCount = new AtomicLong();
 		uploadExecutor = new ThreadPoolExecutor(
-				Runtime.getRuntime().availableProcessors()/4,Runtime.getRuntime().availableProcessors()/2,
+				Runtime.getRuntime().availableProcessors() / 4,Runtime.getRuntime().availableProcessors() / 2,
 				30, TimeUnit.SECONDS,
 				new ArrayBlockingQueue<>(100_000),
 				runnable -> {
@@ -165,7 +169,12 @@ public class AvroToFileThenGoogleOutputHandler implements OutputHandler<GenericR
 				final String fileToUploadName = currentFileName;
 				// schedule to be compressed and uploaded
 				uploadExecutor.execute(() -> {
-					compressAndUploadFile(bucketName, fileToUploadPath, schema.getName()+"/"+fileToUploadName+".gz");
+					if (COMPRESS_AVRO_FILES) {
+						compressAndUploadFile(bucketName, fileToUploadPath,
+								schema.getName() + "/" + fileToUploadName + ".gz");
+					} else {
+						uploadFile(bucketName, fileToUploadPath, schema.getName() + "/" + fileToUploadName);
+					}
 				});
 			} catch (IOException e) {
 				Utils.failWithError(e);
