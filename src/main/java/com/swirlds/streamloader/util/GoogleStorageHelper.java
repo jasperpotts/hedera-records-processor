@@ -9,6 +9,7 @@ import com.google.cloud.storage.StorageOptions;
 
 import javax.json.Json;
 import javax.json.stream.JsonParser;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -16,7 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
-import java.util.zip.Deflater;
+import java.util.zip.GZIPOutputStream;
 
 import static java.nio.file.StandardOpenOption.READ;
 
@@ -99,30 +100,44 @@ public class GoogleStorageHelper {
 		}
 		return buf.clear();
 	}
-	public static void compressAndUploadFile(String bucketName, Path filePath, String filePathInBucket) {
+
+	public static void uploadFile(String bucketName, Path filePath, String filePathInBucket) {
 		try {
-			// read whole file
+			// read whole file into a ByteBuffer
 			final int fileSize = (int)Files.size(filePath);
-			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, true);
+			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, false);
 			try (final var channel = Files.newByteChannel(filePath, READ)) {
 				channel.read(inputBuffer);
 			}
 			inputBuffer.flip();
-			// Compress the bytes
-			final ByteBuffer outputBuffer = getBuffer(outputBuffers, fileSize/2, false); // assume at least half size
-			final Deflater compressor = new Deflater();
-			compressor.setInput(inputBuffer);
-			compressor.finish();
-			final int compressedDataLength = compressor.deflate(outputBuffer);
-			compressor.end();
-			outputBuffer.flip();
 			// upload
-			GoogleStorageHelper.uploadBlob(bucketName, filePathInBucket,
-					outputBuffer.array(), 0, outputBuffer.limit());
+			uploadBlob(bucketName, filePathInBucket, inputBuffer.array());
 		} catch (IOException e) {
 			Utils.failWithError(e);
 		}
 	}
 
+	public static void compressAndUploadFile(String bucketName, Path filePath, String filePathInBucket) {
+		try {
+			// read whole file
+			final int fileSize = (int)Files.size(filePath);
+			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, false);
+			try (final var channel = Files.newByteChannel(filePath, READ)) {
+				channel.read(inputBuffer);
+			}
+			inputBuffer.flip();
+			// Compress the bytes
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+				gzip.write(inputBuffer.array());
+			} catch (IOException e) {
+        			Utils.failWithError(e);
+    			}
+			// upload
+			GoogleStorageHelper.uploadBlob(bucketName, filePathInBucket, baos.toByteArray());
+		} catch (IOException e) {
+			Utils.failWithError(e);
+		}
+	}
 
 }
