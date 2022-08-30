@@ -99,6 +99,23 @@ public class GoogleStorageHelper {
 		}
 		return buf.clear();
 	}
+
+	public static void uploadFile(String bucketName, Path filePath, String filePathInBucket) {
+		try {
+			// read whole file into a ByteBuffer
+			final int fileSize = (int)Files.size(filePath);
+			final ByteBuffer inputBuffer = getBuffer(inputBuffers, fileSize, false);
+			try (final var channel = Files.newByteChannel(filePath, READ)) {
+				channel.read(inputBuffer);
+			}
+			inputBuffer.flip();
+			// upload
+			uploadBlob(bucketName, filePathInBucket, inputBuffer.array());
+		} catch (IOException e) {
+			Utils.failWithError(e);
+		}
+	}
+
 	public static void compressAndUploadFile(String bucketName, Path filePath, String filePathInBucket) {
 		try {
 			// read whole file
@@ -123,6 +140,5 @@ public class GoogleStorageHelper {
 			Utils.failWithError(e);
 		}
 	}
-
 
 }

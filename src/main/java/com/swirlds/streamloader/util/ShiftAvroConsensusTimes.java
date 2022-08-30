@@ -12,8 +12,11 @@ import org.apache.avro.io.DatumWriter;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+
+import static com.swirlds.streamloader.util.GoogleStorageHelper.uploadFile;
 
 public class ShiftAvroConsensusTimes {
 	// copied from ./src/main/java/com/swirlds/streamloader/processing/TransactionProcessingBlock.java; check
@@ -45,6 +48,8 @@ public class ShiftAvroConsensusTimes {
 			 ]
 			}""");
 
+	private static final boolean uploadAndRemoveGeneratedFiles = true;
+
 	public static void main(String[] args) {
 		Schema schema = TRANSACTION_AVRO_SCHEMA;
 		List<String> jvmArgs = Arrays.asList(args);
@@ -52,7 +57,7 @@ public class ShiftAvroConsensusTimes {
 			System.out.println("Usage: ShiftAvroConsensusTimes <inputFilename> <outputFilename> <# of 3-year offsets>");
 			System.exit(1);
 		}
-        final String inputFilename = jvmArgs.get(0);
+		final String inputFilename = jvmArgs.get(0);
 		final String outputFilename = jvmArgs.get(1);
 		long offsetInNanos = 0L;
 		try {
@@ -154,5 +159,18 @@ public class ShiftAvroConsensusTimes {
 				maximumInputTimestamp);
 		System.out.println("Output consensus timestamps ranged from " + minimumOutputTimestamp + " to " +
 				maximumOutputTimestamp);
+		if (uploadAndRemoveGeneratedFiles) {
+			try {
+				uploadFile("pinot-ingestion", Paths.get(outputFilename), schema.getName() + "/" +
+						outputFilename.substring(outputFilename.lastIndexOf("/") + 1));
+				if (outputFile.delete()) {
+					System.out.println("File " + outputFilename + " successfully uploaded and deleted locally.");
+				} else {
+					System.out.println("*** File " + outputFilename + " not successfully uploaded / deleted.");
+				}
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
 	}
 }
