@@ -1,6 +1,7 @@
 package com.swirlds.streamloader.util;
 
 import org.apache.avro.Schema;
+import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -16,7 +17,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.swirlds.streamloader.util.GoogleStorageHelper.uploadFile;
+import static com.swirlds.streamloader.util.GoogleStorageHelper.compressAndUploadFile;
 
 public class ShiftAvroConsensusTimes {
 	// copied from ./src/main/java/com/swirlds/streamloader/processing/TransactionProcessingBlock.java; check
@@ -87,6 +88,8 @@ public class ShiftAvroConsensusTimes {
 		DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
 		DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
 		try {
+			// smallest files tend to be gzipped, non-snappy .avro files.
+			// dataFileWriter.setCodec(CodecFactory.snappyCodec());
 			dataFileWriter.create(schema, outputFile);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -161,8 +164,10 @@ public class ShiftAvroConsensusTimes {
 				maximumOutputTimestamp);
 		if (uploadAndRemoveGeneratedFiles) {
 			try {
-				uploadFile("pinot-ingestion", Paths.get(outputFilename), schema.getName() + "/" +
-						outputFilename.substring(outputFilename.lastIndexOf("/") + 1));
+				// don't try to gzip an avro file written with the "snappy" codec -- the gzipped file
+				// ends up larger than the avro file!
+				compressAndUploadFile("pinot-ingestion", Paths.get(outputFilename), schema.getName() + "/" +
+						outputFilename.substring(outputFilename.lastIndexOf("/") + 1) + ".gz");
 				if (outputFile.delete()) {
 					System.out.println("File " + outputFilename + " successfully uploaded and deleted locally.");
 				} else {
